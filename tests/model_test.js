@@ -95,4 +95,159 @@ test("formatRate appends /s", () => {
   assert.equal(Model.formatRate(12582912), "12M/s");
 });
 
+// ---------- tracking and the bar ----------
+function fixtureState() {
+  const lines = fs.readFileSync(path.join(__dirname, "fixtures", "watch.jsonl"), "utf8").split("\n");
+  return lines.reduce((s, line) => {
+    const e = Model.parseLine(line);
+    return e ? Model.applyEvent(s, e) : s;
+  }, Model.emptyState());
+}
+const G = fixtureState();
+const settings = (over) => Model.withDefaults(Object.assign({}, over));
+const GLYPH = Model.GLYPH;
+const SAMSUNG = "/org/freedesktop/UDisks2/drives/Samsung";
+
+test("withDefaults fills gaps and rejects bad values", () => {
+  assert.deepEqual(Model.withDefaults({}), Model.DEFAULTS);
+  const s = Model.withDefaults({ barStat: "bogus", volume: "", warnAt: "90", criticalAt: null,
+                                 showIo: false, showTemperature: "yes" });
+  assert.equal(s.barStat, "free");
+  assert.equal(s.volume, "/");
+  assert.equal(s.warnAt, 90);
+  assert.equal(s.criticalAt, 95);
+  assert.equal(s.showIo, false);
+  assert.equal(s.showTemperature, false);
+});
+
+test("trackedVolume finds the configured mount", () => {
+  const t = Model.trackedVolume(G, settings({ volume: "/boot" }));
+  assert.equal(t.mount, "/boot");
+  assert.equal(t.volume.device, "/dev/nvme0n1p1");
+  assert.equal(t.fallback, false);
+});
+test("trackedVolume matches any mount point of a volume", () => {
+  const t = Model.trackedVolume(G, settings({ volume: "/home" }));
+  assert.equal(t.volume.device, "/dev/mapper/root");
+  assert.equal(t.mount, "/home");
+});
+test("trackedVolume falls back to / and says so", () => {
+  const t = Model.trackedVolume(G, settings({ volume: "/mnt/usb" }));
+  assert.equal(t.mount, "/");
+  assert.equal(t.fallback, true);
+});
+test("trackedVolume falls back to the first mounted volume when / is missing", () => {
+  const noRoot = Model.applyEvent(Model.emptyState(), { event: "volumes", drives: [{ id: "d", model: "M", device: "/dev/sdb",
+    volumes: [{ id: "v", device: "/dev/sdb1", size: 10, usage: { used: 1, available: 9 },
+                mount_points: [{ path: "/data", options: [] }] }] }] });
+  const t = Model.trackedVolume(noRoot, settings({}));
+  assert.equal(t.mount, "/data");
+  assert.equal(t.fallback, true);
+});
+test("trackedVolume is null with nothing mounted", () => {
+  assert.equal(Model.trackedVolume(Model.emptyState(), settings({})), null);
+});
+
+test("trackedDrive defaults to the drive hosting the tracked volume", () => {
+  assert.equal(Model.trackedDrive(G, settings({})).device, "/dev/nvme0n1");
+});
+test("trackedDrive honours the drive setting", () => {
+  assert.equal(Model.trackedDrive(G, settings({ drive: "/dev/sda" })).model, "Crucial_CT480M500SSD1");
+});
+test("trackedDrive is null for an unknown drive setting", () => {
+  assert.equal(Model.trackedDrive(G, settings({ drive: "/dev/sdz" })), null);
+});
+
+test("usedPercent rounds up like df", () => {
+  assert.equal(Model.usedPercent(G.drives[1].volumes[0]), 35);
+  assert.equal(Model.usedPercent(G.drives[1].volumes[1]), 11);
+  assert.equal(Model.usedPercent(G.drives[0].volumes[0]), null);
+  assert.equal(Model.usedPercent({ usage: { used: 0, available: 0 } }), 0);
+});
+test("level switches at the warning and critical thresholds", () => {
+  const s = settings({});
+  assert.equal(Model.level(84, s), "normal");
+  assert.equal(Model.level(85, s), "warning");
+  assert.equal(Model.level(95, s), "error");
+  assert.equal(Model.level(null, s), "normal");
+});
+
+test("barText free shows the free percent of the tracked volume", () => {
+  assert.equal(Model.barText(G, settings({}), false), GLYPH + " 65%");
+});
+test("barText io shows read and write per second", () => {
+  assert.equal(Model.barText(G, settings({ barStat: "io" }), false), GLYPH + " ↓12M ↑3.1M");
+});
+test("barText io without a rate shows a dash", () => {
+  assert.equal(Model.barText(G, settings({ barStat: "io", drive: "/dev/sdz" }), false), GLYPH + " —");
+  const noIo = Model.applyEvent(G, { event: "io", drives: [] });
+  assert.equal(Model.barText(noIo, settings({ barStat: "io" }), false), GLYPH + " —");
+});
+test("barText temperature rounds to whole degrees", () => {
+  assert.equal(Model.barText(G, settings({ barStat: "temperature" }), false), GLYPH + " 42°");
+});
+test("barText temperature without data shows a dash", () => {
+  const noTemp = Model.applyEvent(G, { event: "health", drives: [{ drive_id: SAMSUNG, temperature_c: null,
+                                                                  failing: false, warnings: [] }] });
+  assert.equal(Model.barText(noTemp, settings({ barStat: "temperature" }), false), GLYPH + " —");
+});
+test("barText is the glyph alone for none and vertical bars, and a dash without data", () => {
+  assert.equal(Model.barText(G, settings({ barStat: "none" }), false), GLYPH);
+  assert.equal(Model.barText(G, settings({}), true), GLYPH);
+  assert.equal(Model.barText(Model.emptyState(), settings({}), false), GLYPH + " —");
+});
+
+test("barLevel follows the tracked volume's usage", () => {
+  assert.equal(Model.barLevel(G, settings({})), "normal");
+  assert.equal(Model.barLevel(G, settings({ warnAt: 30 })), "warning");
+  assert.equal(Model.barLevel(G, settings({ warnAt: 20, criticalAt: 35 })), "error");
+});
+test("barLevel for temperature is error only when the drive is failing", () => {
+  assert.equal(Model.barLevel(G, settings({ barStat: "temperature" })), "normal");
+  const failing = Model.applyEvent(G, { event: "health", drives: [{ drive_id: SAMSUNG, temperature_c: 70,
+                                                                   failing: true, warnings: ["temperature"] }] });
+  assert.equal(Model.barLevel(failing, settings({ barStat: "temperature" })), "error");
+});
+
+test("slotWidth fits the stat text", () => {
+  assert.equal(Model.slotWidth(settings({}), false), 2);
+  assert.equal(Model.slotWidth(settings({ barStat: "io" }), false), 4);
+  assert.equal(Model.slotWidth(settings({ barStat: "temperature" }), false), 2);
+  assert.equal(Model.slotWidth(settings({ barStat: "none" }), false), 1);
+  assert.equal(Model.slotWidth(settings({ barStat: "io" }), true), 1);
+});
+
+test("tooltip explains a missing or outdated gazania", () => {
+  assert.match(Model.tooltip(G, settings({}), "missing"), /Install the gazania package/);
+  assert.match(Model.tooltip(G, settings({}), "outdated"), /Update gazania/);
+});
+test("tooltip says connecting before the first volumes event", () => {
+  assert.equal(Model.tooltip(Model.emptyState(), settings({}), "connecting"), "Gazania: connecting…");
+});
+test("tooltip shows the tracked volume's usage", () => {
+  assert.equal(Model.tooltip(G, settings({}), "ok"), "/\n164G of 475G used\n311G free");
+});
+test("tooltip names a configured mount that was not found", () => {
+  assert.match(Model.tooltip(G, settings({ volume: "/mnt/usb" }), "ok"), /\/mnt\/usb not found, showing \//);
+});
+test("tooltip carries the last stream error", () => {
+  const err = Model.applyEvent(G, { event: "error", message: "udisks2 connection lost" });
+  assert.match(Model.tooltip(err, settings({}), "ok"), /udisks2 connection lost$/);
+});
+
+test("exitDecision: 127 means gazania is missing; recheck every minute", () => {
+  assert.deepEqual(Model.exitDecision(127, false, "connecting", 8000), { status: "missing", retryMs: 60000, nextBackoffMs: 2000 });
+});
+test("exitDecision: usage error before hello means gazania is too old", () => {
+  assert.deepEqual(Model.exitDecision(2, false, "connecting", 2000), { status: "outdated", retryMs: 0, nextBackoffMs: 2000 });
+});
+test("exitDecision: other exits restart with doubling backoff capped at 30 s", () => {
+  assert.deepEqual(Model.exitDecision(2, true, "ok", 2000), { status: "connecting", retryMs: 2000, nextBackoffMs: 4000 });
+  assert.deepEqual(Model.exitDecision(1, true, "ok", 16000), { status: "connecting", retryMs: 16000, nextBackoffMs: 30000 });
+  assert.deepEqual(Model.exitDecision(0, true, "ok", 30000), { status: "connecting", retryMs: 30000, nextBackoffMs: 30000 });
+});
+test("exitDecision: an outdated stream stays stopped", () => {
+  assert.deepEqual(Model.exitDecision(143, true, "outdated", 2000), { status: "outdated", retryMs: 0, nextBackoffMs: 2000 });
+});
+
 console.log("\n" + passed + " passed" + (process.exitCode ? ", some FAILED" : ""));
