@@ -115,6 +115,7 @@ Panel {
   function consume(line) {
     var event = Model.parseLine(line)
     if (event === null) return
+    if (root.streamStatus === "outdated") return
     if (event.event === "hello") {
       root.sawHello = true
       if (Number(event.protocol) !== Model.PROTOCOL) {
@@ -168,7 +169,9 @@ Panel {
     stdout: SplitParser {
       onRead: function(line) { root.consume(line) }
     }
-    onExited: function(exitCode) { root.watcherExited(exitCode) }
+    onExited: function(exitCode, exitStatus) {
+      root.watcherExited(exitStatus === 0 ? exitCode : -1)
+    }
   }
 
   Timer {
@@ -203,10 +206,6 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       onMoveRequested: function(dx, dy) { if (dy !== 0) root.moveCursor(dy) }
-      onTextKey: function(text) {
-        if (text === "j") root.moveCursor(1)
-        else if (text === "k") root.moveCursor(-1)
-      }
       onActivateRequested: {
         if (root.cursorIndex >= 0) root.openRow(root.cursorIndex)
         else root.openApp("")
@@ -505,6 +504,8 @@ Panel {
           Button {
             text: "Open Gazania"
             iconText: Model.GLYPH
+            foreground: root.barForeground
+            fontFamily: root.fontFamily
             bordered: true
             onClicked: root.openApp("")
           }

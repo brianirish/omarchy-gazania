@@ -8,6 +8,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+lintdir=""
+stage=""
+trap 'rm -rf "${lintdir:-}" "${stage:-}"' EXIT
+
 step() { printf '\n== %s\n' "$*"; }
 
 step "Shell syntax"
@@ -44,9 +48,18 @@ if [[ -n $qmllint ]]; then
   lintdir=$(mktemp -d)
   cp Model.js "$lintdir/"
   for f in ./*.qml; do cp "$f" "$lintdir/Lint$(basename "$f")"; done
-  lint=$("$qmllint" "$lintdir"/*.qml 2>&1 | grep -E '^Error|final member' || true)
-  rm -rf "$lintdir"
+  lint=$("$qmllint" "$lintdir"/*.qml 2>&1 | grep -E '^Error|final member|\[syntax\]' || true)
+  # qmlformat exits nonzero on anything that does not parse, whatever the
+  # qmllint version reports.
+  qmlformat="$(command -v qmlformat || true)"
+  [[ -n $qmlformat ]] || [[ ! -x /usr/lib/qt6/bin/qmlformat ]] || qmlformat=/usr/lib/qt6/bin/qmlformat
+  if [[ -n $qmlformat ]]; then
+    for f in "$lintdir"/*.qml; do
+      "$qmlformat" "$f" >/dev/null 2>&1 || lint+=$'\n'"qmlformat could not parse ./$(b=$(basename "$f"); echo "${b#Lint}")"
+    done
+  fi
   if [[ -n $lint ]]; then
+    lint=$(printf '%s\n' "$lint" | sed "s|$lintdir/Lint|./|g")
     printf '%s\n' "$lint" >&2
     exit 1
   fi
@@ -59,7 +72,6 @@ step "QML Text elements declare textFormat (Omarchy's scanner)"
 # The scanner walks ROOT/shell, so stage the plugin's QML under a throwaway
 # root rather than editing the vendored copy.
 stage=$(mktemp -d)
-trap 'rm -rf "$stage"' EXIT
 mkdir -p "$stage/shell"
 cp ./*.qml "$stage/shell/"
 if violations=$(python3 scripts/vendor/qml-text-format-scan.py "$stage") && [[ -z $violations ]]; then
