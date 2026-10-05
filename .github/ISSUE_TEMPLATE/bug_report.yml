@@ -1,0 +1,36 @@
+name: Bug report
+description: The widget is missing, wrong, or misbehaving
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Security problems should go through
+        [private vulnerability reporting](../../security/advisories/new) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `omarchy version`, `gazania --version`, and the plugin commit (`git -C ~/.config/omarchy/plugins/brianirish.gazania log -1 --oneline`).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: stream
+    attributes:
+      label: What the stream reports
+      description: "The first lines of `timeout 3 gazania watch`. Please redact drive serial numbers."
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: "`journalctl --user --since '10 minutes ago' | grep -i -e qml -e gazania`"
+      render: text

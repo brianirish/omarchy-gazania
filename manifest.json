@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "brianirish.gazania",
+  "name": "Gazania",
+  "version": "1.0.0",
+  "author": "Brian Irish",
+  "description": "Free space, disk throughput and drive temperature in the bar, with a panel of every volume, powered by the gazania disk hub",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Gazania",
+    "description": "Free space, throughput and temperature from the gazania disk hub",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "barStat": "free",
+      "volume": "/",
+      "drive": "",
+      "warnAt": 85,
+      "criticalAt": 95,
+      "showIo": true,
+      "showTemperature": true
+    }
+  }
+}
