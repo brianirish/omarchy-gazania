@@ -248,6 +248,107 @@ function exitDecision(code, sawHello, status, backoffMs) {
   return { status: "connecting", retryMs: backoffMs, nextBackoffMs: Math.min(backoffMs * 2, 30000) }
 }
 
+// nf-md-alert (U+F0026) as a surrogate pair.
+var ALERT = "󰀦"
+
+function heroSubtitle(state, settings, status) {
+  if (status === "missing") return "gazania is not installed"
+  if (status === "outdated") return "gazania needs an update"
+  var tracked = trackedVolume(state, settings)
+  if (!tracked || !tracked.volume.usage) return state.hasVolumes ? "no mounted volumes" : "connecting"
+  return formatSize(tracked.volume.usage.available) + " free on " + tracked.mount
+}
+
+function volumeLabel(volume) {
+  return volume.label ? String(volume.label) : String(volume.device || "")
+}
+
+// One row per volume, in stream order; `firstOfDrive` marks where a drive's
+// section header goes.
+function volumeRows(state, settings) {
+  var rows = []
+  for (var i = 0; i < state.drives.length; i++) {
+    var drive = state.drives[i]
+    var volumes = drive.volumes || []
+    for (var j = 0; j < volumes.length; j++) {
+      var v = volumes[j]
+      var mounts = (v.mount_points || []).map(function(m) { return m.path })
+      var percent = usedPercent(v)
+      rows.push({
+        key: String(v.id),
+        firstOfDrive: j === 0,
+        driveModel: String(drive.model || ""),
+        label: volumeLabel(v),
+        mounts: mounts.length > 0 ? mounts.join(", ") : "Not mounted",
+        mount: mounts.length > 0 ? mounts[0] : "",
+        sizeText: v.usage ? formatSize(v.usage.used) + " of " + formatSize(v.size) : formatSize(v.size),
+        freeText: v.usage ? formatSize(v.usage.available) + " free" : "",
+        fraction: percent === null ? 0 : percent / 100,
+        level: level(percent, settings)
+      })
+    }
+  }
+  return rows
+}
+
+// One block per drive with something to show: temperature, throughput or both.
+function driveBlocks(state, settings) {
+  if (!settings.showIo && !settings.showTemperature) return []
+  var blocks = []
+  for (var i = 0; i < state.drives.length; i++) {
+    var drive = state.drives[i]
+    var h = state.health[drive.id] || null
+    var t = temperatureOf(state, drive)
+    var rate = drive.device ? state.io[drive.device] : null
+    var block = {
+      key: String(drive.id),
+      model: String(drive.model || ""),
+      device: drive.device ? String(drive.device) : "",
+      temperatureText: settings.showTemperature && t !== null ? Math.round(t) + " °C" : "",
+      failing: !!(h && h.failing),
+      warningText: h && h.warnings && h.warnings.length ? h.warnings.join(", ") : "",
+      rateText: settings.showIo && rate
+        ? "↓ " + formatRate(rate.read) + "  ↑ " + formatRate(rate.write)
+        : "",
+      showIo: settings.showIo && !!drive.device
+    }
+    if (block.temperatureText === "" && !block.showIo && !block.failing) continue
+    blocks.push(block)
+  }
+  return blocks
+}
+
+// Points for a read line and a write line, right-aligned across HISTORY slots
+// and scaled to the larger peak of the two; silence lies along the bottom.
+function sparkline(samples, width, height) {
+  var list = (samples || []).slice(-HISTORY)
+  var max = 0
+  for (var i = 0; i < list.length; i++) max = Math.max(max, list[i].read, list[i].write)
+  var step = width / (HISTORY - 1)
+  var offset = HISTORY - list.length
+  var y = function(v) { return max > 0 ? height - (v / max) * height : height }
+  var read = []
+  var write = []
+  for (var j = 0; j < list.length; j++) {
+    var x = (offset + j) * step
+    read.push({ x: x, y: y(list[j].read) })
+    write.push({ x: x, y: y(list[j].write) })
+  }
+  return { read: read, write: write }
+}
+
+// Keyboard cursor over `length` rows; -1 means no row yet.
+function stepCursor(index, delta, length) {
+  if (length <= 0) return -1
+  if (index < 0) return delta > 0 ? 0 : length - 1
+  return Math.max(0, Math.min(length - 1, index + delta))
+}
+
+// Single-quote for `sh -c`, which is how the bar runs commands.
+function shellQuote(text) {
+  return "'" + String(text).replace(/'/g, "'\\''") + "'"
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     PROTOCOL: PROTOCOL,
@@ -269,6 +370,13 @@ if (typeof module !== "undefined") {
     barLevel: barLevel,
     slotWidth: slotWidth,
     tooltip: tooltip,
-    exitDecision: exitDecision
+    exitDecision: exitDecision,
+    ALERT: ALERT,
+    heroSubtitle: heroSubtitle,
+    volumeRows: volumeRows,
+    driveBlocks: driveBlocks,
+    sparkline: sparkline,
+    stepCursor: stepCursor,
+    shellQuote: shellQuote
   }
 }

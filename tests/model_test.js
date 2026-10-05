@@ -250,4 +250,104 @@ test("exitDecision: an outdated stream stays stopped", () => {
   assert.deepEqual(Model.exitDecision(143, true, "outdated", 2000), { status: "outdated", retryMs: 0, nextBackoffMs: 2000 });
 });
 
+// ---------- panel view models ----------
+test("heroSubtitle reports free space on the tracked volume", () => {
+  assert.equal(Model.heroSubtitle(G, settings({}), "ok"), "311G free on /");
+});
+test("heroSubtitle explains missing data", () => {
+  assert.equal(Model.heroSubtitle(Model.emptyState(), settings({}), "connecting"), "connecting");
+  assert.equal(Model.heroSubtitle(G, settings({}), "missing"), "gazania is not installed");
+  assert.equal(Model.heroSubtitle(G, settings({}), "outdated"), "gazania needs an update");
+});
+
+test("volumeRows lists every volume grouped by drive, in stream order", () => {
+  const rows = Model.volumeRows(G, settings({}));
+  assert.deepEqual(rows.map(r => r.label), ["SSD_480GB", "/dev/mapper/root", "/dev/nvme0n1p1"]);
+  assert.deepEqual(rows.map(r => r.firstOfDrive), [true, true, false]);
+  assert.deepEqual(rows.map(r => r.driveModel),
+    ["Crucial_CT480M500SSD1", "Samsung SSD 960 PRO 512GB", "Samsung SSD 960 PRO 512GB"]);
+});
+test("volumeRows describes mounted and unmounted volumes", () => {
+  const [ntfs, root, boot] = Model.volumeRows(G, settings({}));
+  assert.equal(ntfs.mounts, "Not mounted");
+  assert.equal(ntfs.mount, "");
+  assert.equal(ntfs.sizeText, "447G");
+  assert.equal(ntfs.freeText, "");
+  assert.equal(ntfs.fraction, 0);
+  assert.equal(root.mounts, "/, /home");
+  assert.equal(root.mount, "/");
+  assert.equal(root.sizeText, "164G of 475G");
+  assert.equal(root.freeText, "311G free");
+  assert.equal(root.fraction, 0.35);
+  assert.equal(root.level, "normal");
+  assert.equal(boot.level, "normal");
+});
+test("volumeRows levels follow the thresholds", () => {
+  const rows = Model.volumeRows(G, settings({ warnAt: 30, criticalAt: 90 }));
+  assert.equal(rows[1].level, "warning");
+  assert.equal(rows[2].level, "normal");
+});
+
+test("driveBlocks pairs temperature and throughput per drive", () => {
+  const blocks = Model.driveBlocks(G, settings({}));
+  assert.deepEqual(blocks.map(b => b.model), ["Crucial_CT480M500SSD1", "Samsung SSD 960 PRO 512GB"]);
+  assert.equal(blocks[0].temperatureText, "33 °C");
+  assert.equal(blocks[1].temperatureText, "42 °C");
+  assert.equal(blocks[1].rateText, "↓ 12M/s  ↑ 3.1M/s");
+  assert.equal(blocks[1].device, "/dev/nvme0n1");
+  assert.equal(blocks[1].showIo, true);
+  assert.equal(blocks[1].failing, false);
+});
+test("driveBlocks honours showIo and showTemperature", () => {
+  assert.deepEqual(Model.driveBlocks(G, settings({ showIo: false, showTemperature: false })), []);
+  const tempsOnly = Model.driveBlocks(G, settings({ showIo: false }));
+  assert.equal(tempsOnly[1].rateText, "");
+  assert.equal(tempsOnly[1].showIo, false);
+  const ioOnly = Model.driveBlocks(G, settings({ showTemperature: false }));
+  assert.equal(ioOnly[1].temperatureText, "");
+});
+test("driveBlocks skips drives with nothing to show", () => {
+  const bare = Model.applyEvent(Model.emptyState(), { event: "volumes",
+    drives: [{ id: "unknown", model: "Unknown device", device: null, volumes: [] }] });
+  assert.deepEqual(Model.driveBlocks(bare, settings({})), []);
+});
+test("driveBlocks flags failing drives and lists their warnings", () => {
+  const failing = Model.applyEvent(G, { event: "health", drives: [{ drive_id: SAMSUNG, temperature_c: 70,
+                                                                   failing: true, warnings: ["temperature", "spare"] }] });
+  const b = Model.driveBlocks(failing, settings({}))[1];
+  assert.equal(b.failing, true);
+  assert.equal(b.warningText, "temperature, spare");
+});
+
+test("sparkline aligns samples to the right edge and scales to the peak", () => {
+  const pts = Model.sparkline([{ read: 0, write: 50 }, { read: 100, write: 0 }], 290, 20);
+  assert.equal(pts.read.length, 2);
+  assert.equal(pts.read[0].x, 280);
+  assert.equal(pts.read[1].x, 290);
+  assert.equal(pts.read[1].y, 0);
+  assert.equal(pts.read[0].y, 20);
+  assert.equal(pts.write[0].y, 10);
+});
+test("sparkline of silence is a flat line along the bottom", () => {
+  assert.equal(Model.sparkline([{ read: 0, write: 0 }], 100, 20).read[0].y, 20);
+});
+test("sparkline of nothing is empty", () => {
+  assert.deepEqual(Model.sparkline([], 100, 20), { read: [], write: [] });
+  assert.deepEqual(Model.sparkline(undefined, 100, 20), { read: [], write: [] });
+});
+
+test("stepCursor starts at an end and stays inside the list", () => {
+  assert.equal(Model.stepCursor(-1, 1, 3), 0);
+  assert.equal(Model.stepCursor(-1, -1, 3), 2);
+  assert.equal(Model.stepCursor(0, -1, 3), 0);
+  assert.equal(Model.stepCursor(2, 1, 3), 2);
+  assert.equal(Model.stepCursor(1, 1, 3), 2);
+  assert.equal(Model.stepCursor(1, 1, 0), -1);
+});
+
+test("shellQuote survives spaces and quotes", () => {
+  assert.equal(Model.shellQuote("/mnt/My Disk"), "'/mnt/My Disk'");
+  assert.equal(Model.shellQuote("/mnt/it's"), "'/mnt/it'\\''s'");
+});
+
 console.log("\n" + passed + " passed" + (process.exitCode ? ", some FAILED" : ""));
