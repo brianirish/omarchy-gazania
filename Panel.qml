@@ -310,10 +310,10 @@ Panel {
                 spacing: Style.space(4)
 
                 PanelSectionHeader {
-                  visible: rowItem.row.firstOfDrive
+                  visible: !!rowItem.row.firstOfDrive
                   width: parent.width
                   elide: Text.ElideRight
-                  text: rowItem.row.driveModel
+                  text: rowItem.row.driveModel || ""
                   foreground: root.barForeground
                   fontFamily: root.fontFamily
                 }
@@ -339,7 +339,7 @@ Panel {
                       height: width
                       anchors.left: parent.left
                       anchors.verticalCenter: parent.verticalCenter
-                      fraction: rowItem.row.fraction
+                      fraction: rowItem.row.fraction || 0
                       tone: root.levelColor(rowItem.row.level, Color.accent)
                     }
 
@@ -354,7 +354,7 @@ Panel {
 
                       Text {
                         textFormat: Text.PlainText
-                        text: rowItem.row.label
+                        text: rowItem.row.label || ""
                         color: root.barForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.body
@@ -365,7 +365,7 @@ Panel {
 
                       Text {
                         textFormat: Text.PlainText
-                        text: rowItem.row.mounts
+                        text: rowItem.row.mounts || ""
                         color: root.dimForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -383,7 +383,7 @@ Panel {
                       Text {
                         anchors.right: parent.right
                         textFormat: Text.PlainText
-                        text: rowItem.row.sizeText
+                        text: rowItem.row.sizeText || ""
                         color: root.barForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.body
@@ -393,7 +393,7 @@ Panel {
                         anchors.right: parent.right
                         textFormat: Text.PlainText
                         visible: text !== ""
-                        text: rowItem.row.freeText
+                        text: rowItem.row.freeText || ""
                         color: root.dimForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -447,7 +447,7 @@ Panel {
                   Text {
                     id: driveName
                     textFormat: Text.PlainText
-                    text: driveItem.block.model
+                    text: driveItem.block.model || ""
                     color: root.barForeground
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
@@ -471,8 +471,8 @@ Panel {
 
                 Text {
                   textFormat: Text.PlainText
-                  visible: driveItem.block.warningText !== ""
-                  text: driveItem.block.warningText
+                  visible: !!driveItem.block.warningText
+                  text: driveItem.block.warningText || ""
                   color: Color.urgent
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -482,15 +482,15 @@ Panel {
 
                 Text {
                   textFormat: Text.PlainText
-                  visible: driveItem.block.rateText !== ""
-                  text: driveItem.block.rateText
+                  visible: !!driveItem.block.rateText
+                  text: driveItem.block.rateText || ""
                   color: root.dimForeground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                 }
 
                 Sparkline {
-                  visible: driveItem.block.showIo
+                  visible: !!driveItem.block.showIo
                   width: parent.width
                   height: Style.space(28)
                   samples: root.diskState.history[driveItem.block.device] || []

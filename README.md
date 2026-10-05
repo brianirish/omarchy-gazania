@@ -61,7 +61,13 @@ Or from the command line:
 ## Key binding
 
 The panel can be driven from a keybinding with
-`omarchy-shell brianirish.gazania toggle` (or `open` / `close`).
+`omarchy-shell shell toggle brianirish.gazania`, which opens it on the
+focused monitor, the way Omarchy's own panel bindings do. For example, in
+`~/.config/hypr/bindings.lua`:
+
+```lua
+o.bind("SUPER + ALT + D", "Disks", "omarchy-shell shell toggle brianirish.gazania")
+```
 
 ## How it works
 
