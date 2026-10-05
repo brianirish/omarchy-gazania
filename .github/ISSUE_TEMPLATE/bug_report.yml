@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for the report! Security problems should go through
-        [private vulnerability reporting](../../security/advisories/new) instead.
+        [private vulnerability reporting](https://github.com/brianirish/omarchy-gazania/security/advisories/new) instead.
   - type: textarea
     id: what-happened
     attributes:

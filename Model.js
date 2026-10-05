@@ -27,6 +27,33 @@ function parseLine(text) {
   return EVENTS.indexOf(event.event) >= 0 ? event : null
 }
 
+// A finite number, or 0 for anything missing, non-numeric, NaN or infinite.
+function finiteOr0(value) {
+  var n = Number(value)
+  return isFinite(n) ? n : 0
+}
+
+function objectsOnly(list) {
+  return (Array.isArray(list) ? list : []).filter(function(item) {
+    return item !== null && typeof item === "object" && !Array.isArray(item)
+  })
+}
+
+// Drops null and non-object entries at every level the panel walks.
+function cleanDrives(drives) {
+  return objectsOnly(drives).map(function(drive) {
+    var clean = copyOf(drive)
+    if (drive.volumes !== undefined) {
+      clean.volumes = objectsOnly(drive.volumes).map(function(volume) {
+        var v = copyOf(volume)
+        if (volume.mount_points !== undefined) v.mount_points = objectsOnly(volume.mount_points)
+        return v
+      })
+    }
+    return clean
+  })
+}
+
 function copyOf(object) {
   var next = {}
   for (var key in object) next[key] = object[key]
@@ -41,7 +68,7 @@ function applyEvent(state, event) {
     next.protocol = Number(event.protocol) || 0
   } else if (event.event === "volumes") {
     if (!Array.isArray(event.drives)) return state
-    next.drives = event.drives
+    next.drives = cleanDrives(event.drives)
     next.hasVolumes = true
     next.lastError = ""
   } else if (event.event === "io") {
@@ -52,8 +79,8 @@ function applyEvent(state, event) {
       var rate = event.drives[i]
       if (!rate || typeof rate.device !== "string") continue
       var sample = {
-        read: Math.max(0, Number(rate.read_bps) || 0),
-        write: Math.max(0, Number(rate.write_bps) || 0)
+        read: Math.max(0, finiteOr0(rate.read_bps)),
+        write: Math.max(0, finiteOr0(rate.write_bps))
       }
       next.io[rate.device] = sample
       next.history[rate.device] = (state.history[rate.device] || []).concat([sample]).slice(-HISTORY)
@@ -75,7 +102,7 @@ function applyEvent(state, event) {
 
 // Same rules as gazania's human_size: 1024-based, one decimal below ten units.
 function formatSize(bytes) {
-  var n = Math.max(0, Number(bytes) || 0)
+  var n = Math.max(0, finiteOr0(bytes))
   if (n < 1024) return Math.floor(n) + "B"
   var unit = 0
   while (n >= 1024 && unit < UNITS.length - 1) {
@@ -99,6 +126,16 @@ function numberOr(value, fallback) {
   return isFinite(n) ? n : fallback
 }
 
+// `omarchy bar set` stores strings unless given --json, so "true" and "off"
+// must work; the tokens match Style.boolToken in the shell.
+function boolSetting(value, fallback) {
+  if (value === true || value === false) return value
+  var t = String(value).trim().toLowerCase()
+  if (t === "true" || t === "1" || t === "yes" || t === "on") return true
+  if (t === "false" || t === "0" || t === "no" || t === "off") return false
+  return fallback
+}
+
 // Settings from shell.json, with every missing or invalid value replaced.
 function withDefaults(partial) {
   var p = partial || {}
@@ -108,8 +145,8 @@ function withDefaults(partial) {
     drive: typeof p.drive === "string" ? p.drive : DEFAULTS.drive,
     warnAt: numberOr(p.warnAt, DEFAULTS.warnAt),
     criticalAt: numberOr(p.criticalAt, DEFAULTS.criticalAt),
-    showIo: p.showIo === undefined ? DEFAULTS.showIo : p.showIo === true,
-    showTemperature: p.showTemperature === undefined ? DEFAULTS.showTemperature : p.showTemperature === true
+    showIo: boolSetting(p.showIo, DEFAULTS.showIo),
+    showTemperature: boolSetting(p.showTemperature, DEFAULTS.showTemperature)
   }
 }
 
@@ -167,8 +204,8 @@ function trackedDrive(state, settings) {
 // Used over used plus available, rounded up, the way df reports it.
 function usedPercent(volume) {
   if (!volume || !volume.usage) return null
-  var used = Number(volume.usage.used) || 0
-  var total = used + (Number(volume.usage.available) || 0)
+  var used = finiteOr0(volume.usage.used)
+  var total = used + finiteOr0(volume.usage.available)
   if (total <= 0) return 0
   return Math.ceil(used / total * 100)
 }
@@ -306,7 +343,7 @@ function driveBlocks(state, settings) {
       device: drive.device ? String(drive.device) : "",
       temperatureText: settings.showTemperature && t !== null ? Math.round(t) + " °C" : "",
       failing: !!(h && h.failing),
-      warningText: h && h.warnings && h.warnings.length ? h.warnings.join(", ") : "",
+      warningText: h && Array.isArray(h.warnings) && h.warnings.length ? h.warnings.join(", ") : "",
       rateText: settings.showIo && rate
         ? "↓ " + formatRate(rate.read) + "  ↑ " + formatRate(rate.write)
         : "",

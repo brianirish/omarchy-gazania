@@ -24,5 +24,5 @@ You should get a response within a week. Please include reproduction steps,
 - The only other command it runs is `gazania-app`, optionally with a mount
   point the stream reported, single-quoted before it reaches the shell.
 - It handles no secrets, opens no sockets and makes no network requests.
-- Drive serial numbers travel in the stream but the widget never displays or
-  stores them.
+- Drive serial numbers travel in the stream but the widget keeps them in memory
+  but never displays or writes them.

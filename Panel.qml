@@ -300,18 +300,20 @@ Panel {
             spacing: Style.space(4)
 
             Repeater {
-              model: root.rows
+              model: root.rows.length
 
               delegate: Column {
                 id: rowItem
-                required property var modelData
                 required property int index
+                readonly property var row: root.rows[index] || ({})
                 width: parent ? parent.width : 0
                 spacing: Style.space(4)
 
                 PanelSectionHeader {
-                  visible: rowItem.modelData.firstOfDrive
-                  text: rowItem.modelData.driveModel
+                  visible: rowItem.row.firstOfDrive
+                  width: parent.width
+                  elide: Text.ElideRight
+                  text: rowItem.row.driveModel
                   foreground: root.barForeground
                   fontFamily: root.fontFamily
                 }
@@ -337,8 +339,8 @@ Panel {
                       height: width
                       anchors.left: parent.left
                       anchors.verticalCenter: parent.verticalCenter
-                      fraction: rowItem.modelData.fraction
-                      tone: root.levelColor(rowItem.modelData.level, Color.accent)
+                      fraction: rowItem.row.fraction
+                      tone: root.levelColor(rowItem.row.level, Color.accent)
                     }
 
                     Column {
@@ -352,7 +354,7 @@ Panel {
 
                       Text {
                         textFormat: Text.PlainText
-                        text: rowItem.modelData.label
+                        text: rowItem.row.label
                         color: root.barForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.body
@@ -363,7 +365,7 @@ Panel {
 
                       Text {
                         textFormat: Text.PlainText
-                        text: rowItem.modelData.mounts
+                        text: rowItem.row.mounts
                         color: root.dimForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -381,7 +383,7 @@ Panel {
                       Text {
                         anchors.right: parent.right
                         textFormat: Text.PlainText
-                        text: rowItem.modelData.sizeText
+                        text: rowItem.row.sizeText
                         color: root.barForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.body
@@ -391,7 +393,7 @@ Panel {
                         anchors.right: parent.right
                         textFormat: Text.PlainText
                         visible: text !== ""
-                        text: rowItem.modelData.freeText
+                        text: rowItem.row.freeText
                         color: root.dimForeground
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -429,11 +431,12 @@ Panel {
             }
 
             Repeater {
-              model: root.driveBlocks
+              model: root.driveBlocks.length
 
               delegate: Column {
                 id: driveItem
-                required property var modelData
+                required property int index
+                readonly property var block: root.driveBlocks[index] || ({})
                 width: parent ? parent.width : 0
                 spacing: Style.space(4)
 
@@ -444,7 +447,7 @@ Panel {
                   Text {
                     id: driveName
                     textFormat: Text.PlainText
-                    text: driveItem.modelData.model
+                    text: driveItem.block.model
                     color: root.barForeground
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
@@ -458,8 +461,8 @@ Panel {
                     id: driveTemp
                     textFormat: Text.PlainText
                     visible: text !== ""
-                    text: (driveItem.modelData.temperatureText + (driveItem.modelData.failing ? " " + Model.ALERT : "")).trim()
-                    color: driveItem.modelData.failing ? Color.urgent : root.barForeground
+                    text: (driveItem.block.temperatureText + (driveItem.block.failing ? " " + Model.ALERT : "")).trim()
+                    color: driveItem.block.failing ? Color.urgent : root.barForeground
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
                     anchors.right: parent.right
@@ -468,8 +471,8 @@ Panel {
 
                 Text {
                   textFormat: Text.PlainText
-                  visible: driveItem.modelData.warningText !== ""
-                  text: driveItem.modelData.warningText
+                  visible: driveItem.block.warningText !== ""
+                  text: driveItem.block.warningText
                   color: Color.urgent
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -479,18 +482,18 @@ Panel {
 
                 Text {
                   textFormat: Text.PlainText
-                  visible: driveItem.modelData.rateText !== ""
-                  text: driveItem.modelData.rateText
+                  visible: driveItem.block.rateText !== ""
+                  text: driveItem.block.rateText
                   color: root.dimForeground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                 }
 
                 Sparkline {
-                  visible: driveItem.modelData.showIo
+                  visible: driveItem.block.showIo
                   width: parent.width
                   height: Style.space(28)
-                  samples: root.diskState.history[driveItem.modelData.device] || []
+                  samples: root.diskState.history[driveItem.block.device] || []
                   writeColor: root.dimForeground
                 }
               }

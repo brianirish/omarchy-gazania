@@ -111,13 +111,50 @@ const SAMSUNG = "/org/freedesktop/UDisks2/drives/Samsung";
 test("withDefaults fills gaps and rejects bad values", () => {
   assert.deepEqual(Model.withDefaults({}), Model.DEFAULTS);
   const s = Model.withDefaults({ barStat: "bogus", volume: "", warnAt: "90", criticalAt: null,
-                                 showIo: false, showTemperature: "yes" });
+                                 showIo: false, showTemperature: true });
   assert.equal(s.barStat, "free");
   assert.equal(s.volume, "/");
   assert.equal(s.warnAt, 90);
   assert.equal(s.criticalAt, 95);
   assert.equal(s.showIo, false);
-  assert.equal(s.showTemperature, false);
+  assert.equal(s.showTemperature, true);
+});
+
+test("withDefaults reads string booleans the way omarchy bar set stores them", () => {
+  const io = (v) => Model.withDefaults({ showIo: v }).showIo;
+  for (const v of ["true", "1", "yes", "on", " TRUE ", true]) assert.equal(io(v), true, String(v));
+  for (const v of ["false", "0", "no", "off", false]) assert.equal(io(v), false, String(v));
+  assert.equal(io("maybe"), true);
+  assert.equal(io(undefined), true);
+  assert.equal(Model.withDefaults({ showTemperature: "off" }).showTemperature, false);
+  assert.equal(Model.withDefaults({ showTemperature: "nonsense" }).showTemperature, true);
+  assert.equal(Model.withDefaults({ warnAt: "90", criticalAt: "99" }).criticalAt, 99);
+});
+
+test("hostile null entries in drives, volumes and mount points do not throw", () => {
+  const s = Model.applyEvent(Model.emptyState(), { event: "volumes", drives: [
+    null, 7, { id: "d", model: "M", device: "/dev/x", volumes: [
+      null, { id: "v", size: 100, usage: { used: 1, available: 9 }, mount_points: [null, { path: "/" }, "x"] }] }] });
+  assert.equal(s.drives.length, 1);
+  assert.equal(s.drives[0].volumes.length, 1);
+  assert.equal(s.drives[0].volumes[0].mount_points.length, 1);
+  const cfg = settings({});
+  assert.equal(Model.volumeRows(s, cfg).length, 1);
+  Model.driveBlocks(s, cfg);
+  assert.ok(Model.barText(s, cfg, false).length > 0);
+  assert.ok(Model.tooltip(s, cfg, "ok").length > 0);
+});
+
+test("non-array warnings and non-finite numbers never reach the display", () => {
+  let s = Model.applyEvent(Model.emptyState(), { event: "volumes", drives: [{ id: "d", device: "/dev/x", model: "M", volumes: [] }] });
+  s = Model.applyEvent(s, { event: "health", drives: [{ drive_id: "d", warnings: "oops", temperature_c: 30 }] });
+  assert.equal(Model.driveBlocks(s, settings({}))[0].warningText, "");
+  s = Model.applyEvent(s, JSON.parse('{"event":"io","drives":[{"device":"/dev/x","read_bps":9e999,"write_bps":1}]}'));
+  assert.equal(s.io["/dev/x"].read, 0);
+  assert.equal(Model.formatSize(JSON.parse("9e999")), "0B");
+  assert.equal(Model.formatSize(Infinity), "0B");
+  assert.equal(Model.formatRate(NaN), "0B/s");
+  assert.ok(!Model.driveBlocks(s, settings({}))[0].rateText.includes("Infinity"));
 });
 
 test("trackedVolume finds the configured mount", () => {
@@ -348,6 +385,9 @@ test("stepCursor starts at an end and stays inside the list", () => {
 test("shellQuote survives spaces and quotes", () => {
   assert.equal(Model.shellQuote("/mnt/My Disk"), "'/mnt/My Disk'");
   assert.equal(Model.shellQuote("/mnt/it's"), "'/mnt/it'\\''s'");
+  assert.equal(Model.shellQuote("$(id)"), "'$(id)'");
+  assert.equal(Model.shellQuote("a`id`b"), "'a`id`b'");
+  assert.equal(Model.shellQuote('a"b'), "'a\"b'");
 });
 
 console.log("\n" + passed + " passed" + (process.exitCode ? ", some FAILED" : ""));
