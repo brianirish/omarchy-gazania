@@ -38,7 +38,15 @@ step "QML lint (properties the shell would refuse to load)"
 qmllint="$(command -v qmllint || true)"
 [[ -n $qmllint ]] || [[ ! -x /usr/lib/qt6/bin/qmllint ]] || qmllint=/usr/lib/qt6/bin/qmllint
 if [[ -n $qmllint ]]; then
-  if lint=$("$qmllint" ./*.qml 2>&1 | grep -E '^Error|final member'); then
+  # Panel.qml instantiates the shell's own Panel. Linted under its real name,
+  # qmllint can't resolve qs.Ui, resolves Panel to the file itself and spins
+  # forever, so lint a copy under another name.
+  lintdir=$(mktemp -d)
+  cp Model.js "$lintdir/"
+  for f in ./*.qml; do cp "$f" "$lintdir/Lint$(basename "$f")"; done
+  lint=$("$qmllint" "$lintdir"/*.qml 2>&1 | grep -E '^Error|final member' || true)
+  rm -rf "$lintdir"
+  if [[ -n $lint ]]; then
     printf '%s\n' "$lint" >&2
     exit 1
   fi
