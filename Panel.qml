@@ -123,11 +123,14 @@ Panel {
     if (root.streamStatus === "outdated") return
     if (event.event === "hello") {
       root.sawHello = true
+      // Record the protocol before stopping, so the tooltip can tell an old
+      // gazania from one newer than this widget.
+      root.diskState = Model.applyEvent(root.diskState, event)
       if (Number(event.protocol) !== Model.PROTOCOL) {
         root.streamStatus = "outdated"
         watcher.running = false
-        return
       }
+      return
     }
     if (event.event === "volumes") {
       root.backoffMs = 2000

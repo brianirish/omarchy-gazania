@@ -300,9 +300,18 @@ function slotWidth(settings, vertical) {
   return settings.barStat === "io" ? 5 : 2
 }
 
+// "outdated" covers two cases. gazania older than 0.2 rejects `watch`
+// before saying hello, so no protocol is recorded; that gazania needs an
+// update. A hello naming a newer protocol than PROTOCOL means gazania is
+// ahead of this widget, and the bar plugin is the one to update.
+function pluginOutdated(state, status) {
+  return status === "outdated" && Number(state.protocol) > PROTOCOL
+}
+
 function tooltip(state, settings, status, tr, formatNumber) {
   if (status === "missing") return tr.t("tooltip.missing")
-  if (status === "outdated") return tr.t("tooltip.outdated")
+  if (pluginOutdated(state, status)) return tr.t("tooltip.pluginOutdated")
+  if (status === "outdated") return tr.t("tooltip.gazaniaOutdated")
   if (!state.hasVolumes) return state.lastError !== "" ? fill(tr.t("tooltip.error"), [state.lastError]) : tr.t("tooltip.connecting")
   var tracked = trackedVolume(state, settings)
   if (!tracked) return tr.t("tooltip.noVolumes")
@@ -335,7 +344,8 @@ var ALERT = "󰀦"
 // and "/mnt/Media" is not "/MNT/MEDIA".
 function heroSubtitle(state, settings, status, tr, formatNumber) {
   if (status === "missing") return tr.t("hero.missing").toUpperCase()
-  if (status === "outdated") return tr.t("hero.outdated").toUpperCase()
+  if (pluginOutdated(state, status)) return tr.t("hero.pluginOutdated").toUpperCase()
+  if (status === "outdated") return tr.t("hero.gazaniaOutdated").toUpperCase()
   var tracked = trackedVolume(state, settings)
   if (!tracked || !tracked.volume.usage) {
     return (state.hasVolumes ? tr.t("hero.noVolumes") : tr.t("hero.connecting")).toUpperCase()
@@ -458,6 +468,7 @@ if (typeof module !== "undefined") {
     barLabel: barLabel,
     barLevel: barLevel,
     slotWidth: slotWidth,
+    pluginOutdated: pluginOutdated,
     tooltip: tooltip,
     exitDecision: exitDecision,
     ALERT: ALERT,

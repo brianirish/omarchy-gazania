@@ -322,6 +322,19 @@ test("tooltip explains a missing or outdated gazania", () => {
   assert.equal(Model.tooltip(G, settings({}), "missing", en), "Install the gazania package (0.2 or newer)");
   assert.equal(Model.tooltip(G, settings({}), "outdated", en), "Update gazania to 0.2 or newer");
 });
+// Issue #1: a hello with a newer protocol means the widget is the old side.
+const newerHello = Model.applyEvent(s0, { event: "hello", protocol: Model.PROTOCOL + 1, version: "9.0.0" });
+const olderHello = Model.applyEvent(s0, { event: "hello", protocol: 0, version: "0.1.9" });
+test("tooltip asks to update the bar plugin when gazania speaks a newer protocol", () => {
+  assert.equal(Model.tooltip(newerHello, settings({}), "outdated", en), "Update the Gazania bar plugin to work with this newer gazania");
+  assert.equal(Model.tooltip(olderHello, settings({}), "outdated", en), "Update gazania to 0.2 or newer");
+});
+test("pluginOutdated needs the outdated status and a protocol newer than the widget's", () => {
+  assert.equal(Model.pluginOutdated(newerHello, "outdated"), true);
+  assert.equal(Model.pluginOutdated(newerHello, "ok"), false);
+  assert.equal(Model.pluginOutdated(olderHello, "outdated"), false);
+  assert.equal(Model.pluginOutdated(s0, "outdated"), false);
+});
 test("tooltip says connecting before the first volumes event", () => {
   assert.equal(Model.tooltip(Model.emptyState(), settings({}), "connecting", en), "Gazania: connecting…");
 });
@@ -382,6 +395,10 @@ test("heroSubtitle explains missing data", () => {
     "NO MOUNTED VOLUMES");
   assert.equal(Model.heroSubtitle(G, settings({}), "missing", en), "GAZANIA IS NOT INSTALLED");
   assert.equal(Model.heroSubtitle(G, settings({}), "outdated", en), "GAZANIA NEEDS AN UPDATE");
+});
+test("heroSubtitle names the side that needs an update", () => {
+  assert.equal(Model.heroSubtitle(newerHello, settings({}), "outdated", en), "THE BAR PLUGIN NEEDS AN UPDATE");
+  assert.equal(Model.heroSubtitle(olderHello, settings({}), "outdated", en), "GAZANIA NEEDS AN UPDATE");
 });
 
 test("volumeRows lists every volume grouped by drive, in stream order", () => {

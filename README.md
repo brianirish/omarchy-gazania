@@ -84,9 +84,12 @@ blend of the two for warnings, since themes define no warning color.
   `gazania` command is not on `PATH`. Install the package; the widget checks
   again every minute.
 - **The tooltip says to update gazania:** the installed version is older than
-  0.2, or its stream reports a protocol this widget does not know. The widget
-  stops retrying in that state; after updating, restart the shell with
+  0.2, or its stream reports an older protocol than this widget reads. The
+  widget stops retrying in that state; after updating, restart the shell with
   `omarchy restart shell`.
+- **The tooltip says to update the Gazania bar plugin:** gazania is newer than
+  this widget and streams a protocol it does not know yet. Run
+  `omarchy plugin update brianirish.gazania`, then `omarchy restart shell`.
 - **No temperature for a drive:** many USB enclosures hide SMART data.
   `gazania health` shows the same gap.
 - **Anything else:** `journalctl --user --since '10 minutes ago' | grep -i -e qml -e gazania`

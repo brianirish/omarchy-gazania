@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/check` and CI type-check the QML against Omarchy's own components,
   and CI repeats that weekly against the newest Omarchy release.
 
+### Fixed
+
+- When gazania is newer than the widget, the tooltip and panel now ask to
+  update the bar plugin instead of gazania (#1).
+
 ## [1.0.0] - 2026-10-05
 
 ### Added
