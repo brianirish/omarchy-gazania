@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-09
+
+Omarchy 4.5 support. 2.0 needs Omarchy 4.5 or newer; on 4.0, stay on 1.0.0
+(`git -C ~/.config/omarchy/plugins/brianirish.gazania checkout v1.0.0`).
+
 ### Changed
 
 - Requires Omarchy 4.5 or newer. On Omarchy 4.0, stay on v1.0.0.
@@ -15,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   box, which shrank "󰋊 65%" until it could not be read. The `io` stat has a
   wider slot, so its widest label fits.
 - The widget's text follows the language picked under Setup > Language, from
-  catalogs in `i18n/`. Sizes, rates and temperatures use that language's
+  catalogs in `i18n/` for all 50 Omarchy languages (machine-translated from
+  English; corrections welcome). Sizes, rates and temperatures use that language's
   digits and decimal separator; unit letters stay as they are.
 - The panel caption no longer capitalises the mount point it names.
 - In right-to-left languages the throughput sparkline runs right to left,
@@ -46,4 +52,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings for the bar stat, the tracked volume and drive, the warning
   thresholds and which drive details show.
 
+[2.0.0]: https://github.com/brianirish/omarchy-gazania/releases/tag/v2.0.0
 [1.0.0]: https://github.com/brianirish/omarchy-gazania/releases/tag/v1.0.0
