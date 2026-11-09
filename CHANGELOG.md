@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   update the bar plugin instead of gazania (#1).
 - When `setpriv` itself cannot start, the widget says so and tries again
   every minute, instead of showing "connecting" forever (#2).
+- With more volumes than fit, the panel scrolls to keep the keyboard
+  highlight in view (#3).
 
 ## [1.0.0] - 2026-10-05
 

@@ -152,6 +152,18 @@ Panel {
 
   function moveCursor(delta) {
     root.cursorIndex = Model.stepCursor(root.cursorIndex, delta, root.rows.length)
+    root.ensureCursorVisible(volumeRepeater.itemAt(root.cursorIndex))
+  }
+
+  // Keeps the keyboard highlight inside the viewport when there are more
+  // volumes than fit, as the monitor panel's helper of the same name does.
+  // Only keys call it: a row under the pointer is already in view.
+  function ensureCursorVisible(item) {
+    var flick = scrollArea.contentItem
+    if (!item || !flick || flick.contentY === undefined) return
+    var top = item.mapToItem(flick.contentItem || flick, 0, 0).y
+    flick.contentY = Model.scrollToShow(top, top + item.height, flick.contentY, flick.height,
+                                        flick.contentHeight, Style.space(6))
   }
 
   function openApp(mount) {
@@ -322,6 +334,7 @@ Panel {
             spacing: Style.space(4)
 
             Repeater {
+              id: volumeRepeater
               model: root.rows.length
 
               delegate: Column {

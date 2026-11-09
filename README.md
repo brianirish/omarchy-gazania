@@ -32,10 +32,10 @@ stream, so the widget never polls the disks itself.
   current throughput and a 30-second sparkline; and a button that opens
   Gazania.
 - **Keys in the panel:** Up and Down or `j` and `k` move the highlight
-  between volumes. Enter or Space opens the highlighted volume in Gazania, or
-  opens Gazania itself when nothing is highlighted. Clicking a volume opens it
-  in Gazania too. Tab and Shift+Tab move between panels, Escape closes the
-  panel.
+  between volumes, and the panel scrolls to keep it in view. Enter or Space
+  opens the highlighted volume in Gazania, or opens Gazania itself when
+  nothing is highlighted. Clicking a volume opens it in Gazania too. Tab and
+  Shift+Tab move between panels, Escape closes the panel.
 
 ## Settings
 

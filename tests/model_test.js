@@ -510,6 +510,25 @@ test("stepCursor starts at an end and stays inside the list", () => {
   assert.equal(Model.stepCursor(1, 1, 0), -1);
 });
 
+// scrollToShow: the panel keeps the keyboard highlight in view (issue #3).
+test("scrollToShow leaves a row that is already in view alone", () => {
+  assert.equal(Model.scrollToShow(100, 140, 50, 400, 1000, 6), 50);
+});
+test("scrollToShow scrolls down just far enough to show a row below the view", () => {
+  assert.equal(Model.scrollToShow(500, 540, 50, 400, 1000, 6), 146);
+});
+test("scrollToShow scrolls up to show a row above the view, with the margin", () => {
+  assert.equal(Model.scrollToShow(100, 140, 300, 400, 1000, 6), 94);
+});
+test("scrollToShow stays inside the content", () => {
+  assert.equal(Model.scrollToShow(2, 40, 300, 400, 1000, 6), 0);
+  assert.equal(Model.scrollToShow(960, 1000, 0, 400, 1000, 6), 600);
+  assert.equal(Model.scrollToShow(100, 140, 0, 400, 300, 6), 0);
+});
+test("scrollToShow shows the top of a row taller than the view", () => {
+  assert.equal(Model.scrollToShow(500, 1000, 0, 400, 2000, 6), 494);
+});
+
 test("shellQuote survives spaces and quotes", () => {
   assert.equal(Model.shellQuote("/mnt/My Disk"), "'/mnt/My Disk'");
   assert.equal(Model.shellQuote("/mnt/it's"), "'/mnt/it'\\''s'");

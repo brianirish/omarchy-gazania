@@ -446,6 +446,17 @@ function stepCursor(index, delta, length) {
   return Math.max(0, Math.min(length - 1, index + delta))
 }
 
+// The scroll offset that brings top..bottom into a viewport viewHeight tall,
+// now scrolled to viewTop, with `margin` to spare: it moves as little as it
+// can, shows the top of anything taller than the viewport, and stays within
+// 0..contentHeight - viewHeight.
+function scrollToShow(top, bottom, viewTop, viewHeight, contentHeight, margin) {
+  var y = viewTop
+  if (top < viewTop + margin || bottom - top > viewHeight - 2 * margin) y = top - margin
+  else if (bottom > viewTop + viewHeight - margin) y = bottom + margin - viewHeight
+  return Math.max(0, Math.min(Math.max(0, contentHeight - viewHeight), y))
+}
+
 // Single-quote for `sh -c`, which is how the bar runs commands.
 function shellQuote(text) {
   return "'" + String(text).replace(/'/g, "'\\''") + "'"
@@ -482,6 +493,7 @@ if (typeof module !== "undefined") {
     driveBlocks: driveBlocks,
     sparkline: sparkline,
     stepCursor: stepCursor,
+    scrollToShow: scrollToShow,
     shellQuote: shellQuote,
     fill: fill
   }
