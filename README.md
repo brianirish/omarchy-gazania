@@ -83,6 +83,9 @@ blend of the two for warnings, since themes define no warning color.
 - **The glyph is dimmed and the tooltip says to install gazania:** the
   `gazania` command is not on `PATH`. Install the package; the widget checks
   again every minute.
+- **The tooltip says setpriv could not start:** the widget runs `gazania watch`
+  through `setpriv`, from the `util-linux` package, so the stream stops with
+  the shell. Install `util-linux`; the widget tries again every minute.
 - **The tooltip says to update gazania:** the installed version is older than
   0.2, or its stream reports an older protocol than this widget reads. The
   widget stops retrying in that state; after updating, restart the shell with

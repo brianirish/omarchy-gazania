@@ -88,7 +88,7 @@ Panel {
   }
 
   property var diskState: Model.emptyState()
-  // connecting | ok | missing | outdated
+  // connecting | ok | missing | unstartable | outdated
   property string streamStatus: "connecting"
   property bool sawHello: false
   property int backoffMs: 2000
@@ -172,13 +172,24 @@ Panel {
 
   Process {
     id: watcher
+    // Set once the process is up. When the program itself cannot start
+    // (setpriv missing), Quickshell sends runningChanged without exited, so a
+    // stop that never started goes through exitDecision as a failed start.
+    // A normal exit sends exited first, then runningChanged.
+    property bool launched: false
     command: ["setpriv", "--pdeathsig", "TERM", "gazania", "watch"]
     running: true
     stdout: SplitParser {
       onRead: function(line) { root.consume(line) }
     }
+    onStarted: launched = true
     onExited: function(exitCode, exitStatus) {
       root.watcherExited(exitStatus === 0 ? exitCode : -1)
+    }
+    onRunningChanged: {
+      if (running) return
+      if (!launched) root.watcherExited(null)
+      launched = false
     }
   }
 

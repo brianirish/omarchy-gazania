@@ -1,6 +1,7 @@
 {
   "bar.freePercent": "%1%",
   "tooltip.missing": "Install the gazania package (0.2 or newer)",
+  "tooltip.unstartable": "Could not start setpriv, which runs gazania. It comes with the util-linux package.",
   "tooltip.gazaniaOutdated": "Update gazania to 0.2 or newer",
   "tooltip.pluginOutdated": "Update the Gazania bar plugin to work with this newer gazania",
   "tooltip.connecting": "Gazania: connecting…",
@@ -10,6 +11,7 @@
   "tooltip.fallback": "%1 not found, showing %2",
   "space.free": "%1 free",
   "hero.missing": "gazania is not installed",
+  "hero.unstartable": "setpriv could not start",
   "hero.gazaniaOutdated": "gazania needs an update",
   "hero.pluginOutdated": "the bar plugin needs an update",
   "hero.connecting": "connecting",

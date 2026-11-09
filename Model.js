@@ -310,6 +310,7 @@ function pluginOutdated(state, status) {
 
 function tooltip(state, settings, status, tr, formatNumber) {
   if (status === "missing") return tr.t("tooltip.missing")
+  if (status === "unstartable") return tr.t("tooltip.unstartable")
   if (pluginOutdated(state, status)) return tr.t("tooltip.pluginOutdated")
   if (status === "outdated") return tr.t("tooltip.gazaniaOutdated")
   if (!state.hasVolumes) return state.lastError !== "" ? fill(tr.t("tooltip.error"), [state.lastError]) : tr.t("tooltip.connecting")
@@ -326,11 +327,14 @@ function tooltip(state, settings, status, tr, formatNumber) {
   return lines.join("\n")
 }
 
-// What to do when `gazania watch` exits. 127: not installed, recheck every
-// minute. 2 before any hello: clap rejected `watch`, so gazania predates 0.2.
-// Anything else: restart with backoff doubling from 2 s to 30 s.
+// What to do when `gazania watch` exits. null: the watcher never started,
+// because setpriv itself could not run; recheck every minute. 127: gazania is
+// not installed, recheck every minute. 2 before any hello: clap rejected
+// `watch`, so gazania predates 0.2. Anything else: restart with backoff
+// doubling from 2 s to 30 s.
 function exitDecision(code, sawHello, status, backoffMs) {
   if (status === "outdated") return { status: "outdated", retryMs: 0, nextBackoffMs: backoffMs }
+  if (code === null) return { status: "unstartable", retryMs: 60000, nextBackoffMs: 2000 }
   if (code === 127) return { status: "missing", retryMs: 60000, nextBackoffMs: 2000 }
   if (code === 2 && !sawHello) return { status: "outdated", retryMs: 0, nextBackoffMs: backoffMs }
   return { status: "connecting", retryMs: backoffMs, nextBackoffMs: Math.min(backoffMs * 2, 30000) }
@@ -344,6 +348,7 @@ var ALERT = "󰀦"
 // and "/mnt/Media" is not "/MNT/MEDIA".
 function heroSubtitle(state, settings, status, tr, formatNumber) {
   if (status === "missing") return tr.t("hero.missing").toUpperCase()
+  if (status === "unstartable") return tr.t("hero.unstartable").toUpperCase()
   if (pluginOutdated(state, status)) return tr.t("hero.pluginOutdated").toUpperCase()
   if (status === "outdated") return tr.t("hero.gazaniaOutdated").toUpperCase()
   var tracked = trackedVolume(state, settings)

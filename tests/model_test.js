@@ -373,6 +373,15 @@ test("exitDecision: other exits restart with doubling backoff capped at 30 s", (
   assert.deepEqual(Model.exitDecision(1, true, "ok", 16000), { status: "connecting", retryMs: 16000, nextBackoffMs: 30000 });
   assert.deepEqual(Model.exitDecision(0, true, "ok", 30000), { status: "connecting", retryMs: 30000, nextBackoffMs: 30000 });
 });
+test("exitDecision: a watcher that never started rechecks every minute", () => {
+  // Issue #2: setpriv itself failing to start sends no exit code.
+  assert.deepEqual(Model.exitDecision(null, false, "connecting", 8000), { status: "unstartable", retryMs: 60000, nextBackoffMs: 2000 });
+  assert.notEqual(Model.exitDecision(0, false, "connecting", 2000).status, "unstartable");
+});
+test("tooltip and heroSubtitle explain a watcher that could not start", () => {
+  assert.match(Model.tooltip(G, settings({}), "unstartable", en), /^Could not start setpriv/);
+  assert.equal(Model.heroSubtitle(G, settings({}), "unstartable", en), "SETPRIV COULD NOT START");
+});
 test("exitDecision: an outdated stream stays stopped", () => {
   assert.deepEqual(Model.exitDecision(143, true, "outdated", 2000), { status: "outdated", retryMs: 0, nextBackoffMs: 2000 });
 });
