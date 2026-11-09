@@ -54,7 +54,7 @@ Or from the command line:
 | `volume` | `/` | Mount point the bar tracks. Any mount point of a btrfs subvolume works. When it is not mounted, the bar tracks `/`, and if that is missing too the first mounted volume; the tooltip says so. |
 | `drive` | empty | Device for `io` and `temperature`, such as `/dev/sda`. Empty means the drive that holds `volume`. |
 | `warnAt` | `85` | Percent used at which the bar text and the panel rings take the warning color. |
-| `criticalAt` | `95` | Percent used at which they take the error color. |
+| `criticalAt` | `95` | Percent used at which they take the error color. If it is below `warnAt`, the two are swapped. |
 | `showIo` | `true` | Show throughput and the sparkline in the panel. |
 | `showTemperature` | `true` | Show temperature in the panel. |
 

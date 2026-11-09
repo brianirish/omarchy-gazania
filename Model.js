@@ -143,6 +143,13 @@ function formatRate(bps, formatNumber) {
   return formatSize(bps, formatNumber) + "/s"
 }
 
+// A volume's size, or a dash when udisks2 does not report one (gazania then
+// sends 0), rather than a misleading "0B".
+function volumeSize(volume, formatNumber) {
+  var n = Number(volume ? volume.size : undefined)
+  return isFinite(n) && n > 0 ? formatSize(n, formatNumber) : DASH
+}
+
 var DEFAULTS = { barStat: "free", volume: "/", drive: "", warnAt: 85, criticalAt: 95, showIo: true, showTemperature: true }
 var BAR_STATS = ["free", "io", "temperature", "none"]
 var DASH = "—"
@@ -164,14 +171,18 @@ function boolSetting(value, fallback) {
 }
 
 // Settings from shell.json, with every missing or invalid value replaced.
+// A warnAt above criticalAt would show the error color below the warning
+// threshold, so an inverted pair is read as the two thresholds swapped.
 function withDefaults(partial) {
   var p = partial || {}
+  var warnAt = numberOr(p.warnAt, DEFAULTS.warnAt)
+  var criticalAt = numberOr(p.criticalAt, DEFAULTS.criticalAt)
   return {
     barStat: BAR_STATS.indexOf(p.barStat) >= 0 ? p.barStat : DEFAULTS.barStat,
     volume: typeof p.volume === "string" && p.volume !== "" ? p.volume : DEFAULTS.volume,
     drive: typeof p.drive === "string" ? p.drive : DEFAULTS.drive,
-    warnAt: numberOr(p.warnAt, DEFAULTS.warnAt),
-    criticalAt: numberOr(p.criticalAt, DEFAULTS.criticalAt),
+    warnAt: Math.min(warnAt, criticalAt),
+    criticalAt: Math.max(warnAt, criticalAt),
     showIo: boolSetting(p.showIo, DEFAULTS.showIo),
     showTemperature: boolSetting(p.showTemperature, DEFAULTS.showTemperature)
   }
@@ -319,7 +330,7 @@ function tooltip(state, settings, status, tr, formatNumber) {
   var lines = [tracked.mount]
   var usage = tracked.volume.usage
   if (usage) {
-    lines.push(fill(tr.t("tooltip.usedOfSize"), [formatSize(usage.used, formatNumber), formatSize(tracked.volume.size, formatNumber)]))
+    lines.push(fill(tr.t("tooltip.usedOfSize"), [formatSize(usage.used, formatNumber), volumeSize(tracked.volume, formatNumber)]))
     lines.push(fill(tr.t("space.free"), [formatSize(usage.available, formatNumber)]))
   }
   if (tracked.fallback) lines.push(fill(tr.t("tooltip.fallback"), [settings.volume, tracked.mount]))
@@ -381,8 +392,8 @@ function volumeRows(state, settings, tr, formatNumber) {
         mounts: mounts.length > 0 ? mounts.join(", ") : tr.t("volume.notMounted"),
         mount: mounts.length > 0 ? mounts[0] : "",
         sizeText: v.usage
-          ? fill(tr.t("volume.usedOfSize"), [formatSize(v.usage.used, formatNumber), formatSize(v.size, formatNumber)])
-          : formatSize(v.size, formatNumber),
+          ? fill(tr.t("volume.usedOfSize"), [formatSize(v.usage.used, formatNumber), volumeSize(v, formatNumber)])
+          : volumeSize(v, formatNumber),
         freeText: v.usage ? fill(tr.t("space.free"), [formatSize(v.usage.available, formatNumber)]) : "",
         fraction: percent === null ? 0 : percent / 100,
         level: level(percent, settings)
@@ -473,6 +484,7 @@ if (typeof module !== "undefined") {
     applyEvent: applyEvent,
     formatSize: formatSize,
     formatRate: formatRate,
+    volumeSize: volumeSize,
     withDefaults: withDefaults,
     trackedVolume: trackedVolume,
     trackedDrive: trackedDrive,

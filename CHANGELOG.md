@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every minute, instead of showing "connecting" forever (#2).
 - With more volumes than fit, the panel scrolls to keep the keyboard
   highlight in view (#3).
+- A volume whose size udisks2 does not report shows a dash instead of "0B",
+  and a `warnAt` above `criticalAt` is read as the two thresholds swapped
+  (#4).
 
 ## [1.0.0] - 2026-10-05
 

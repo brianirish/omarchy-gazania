@@ -145,6 +145,18 @@ test("withDefaults fills gaps and rejects bad values", () => {
   assert.equal(s.showTemperature, true);
 });
 
+test("withDefaults swaps an inverted warnAt and criticalAt pair", () => {
+  // Issue #4: an inverted pair put the error color below the warning threshold.
+  const s = Model.withDefaults({ warnAt: 95, criticalAt: 80 });
+  assert.equal(s.warnAt, 80);
+  assert.equal(s.criticalAt, 95);
+  const one = Model.withDefaults({ warnAt: "97" });
+  assert.deepEqual([one.warnAt, one.criticalAt], [95, 97]);
+  assert.equal(Model.level(85, s), "warning");
+  const equal = Model.withDefaults({ warnAt: 90, criticalAt: 90 });
+  assert.deepEqual([equal.warnAt, equal.criticalAt], [90, 90]);
+});
+
 test("withDefaults reads string booleans the way omarchy bar set stores them", () => {
   const io = (v) => Model.withDefaults({ showIo: v }).showIo;
   for (const v of ["true", "1", "yes", "on", " TRUE ", true]) assert.equal(io(v), true, String(v));
@@ -431,6 +443,19 @@ test("volumeRows describes mounted and unmounted volumes", () => {
   assert.equal(root.fraction, 0.35);
   assert.equal(root.level, "normal");
   assert.equal(boot.level, "normal");
+});
+test("volumeRows shows a dash for a size udisks2 does not report", () => {
+  // Issue #4: gazania sends size 0 when udisks2 has none; that is not "0B".
+  const unsized = Model.applyEvent(Model.emptyState(), { event: "volumes", drives: [{ id: "d", model: "Card reader", device: "/dev/sdd",
+    volumes: [{ id: "v0", device: "/dev/sdd1", size: 0, usage: null, mount_points: [] },
+              { id: "v1", device: "/dev/sdd2", size: null, usage: null, mount_points: [] },
+              { id: "v2", device: "/dev/sdd3", usage: null, mount_points: [] },
+              { id: "v3", device: "/dev/sdd4", size: 0, usage: { used: 1024, available: 0 }, mount_points: [{ path: "/mnt/x" }] }] }] });
+  const rows = Model.volumeRows(unsized, settings({}), en);
+  assert.deepEqual(rows.map((r) => r.sizeText), ["—", "—", "—", "1.0K of —"]);
+  assert.equal(Model.volumeSize({ size: 1536 }), "1.5K");
+  assert.equal(Model.volumeSize({ size: "x" }), "—");
+  assert.equal(Model.volumeSize(null), "—");
 });
 test("volumeRows sizes follow the language's decimal separator", () => {
   const boot = Model.volumeRows(G, settings({}), en, comma)[2];
