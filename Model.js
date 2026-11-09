@@ -433,7 +433,9 @@ function driveBlocks(state, settings, formatNumber) {
 
 // Points for a read line and a write line, right-aligned across HISTORY slots
 // and scaled to the larger peak of the two; silence lies along the bottom.
-function sparkline(samples, width, height) {
+// `mirrored` runs time the way a right-to-left language reads, newest at the
+// left, as the shell's own strips do.
+function sparkline(samples, width, height, mirrored) {
   var list = (samples || []).slice(-HISTORY)
   var max = 0
   for (var i = 0; i < list.length; i++) max = Math.max(max, list[i].read, list[i].write)
@@ -444,6 +446,7 @@ function sparkline(samples, width, height) {
   var write = []
   for (var j = 0; j < list.length; j++) {
     var x = (offset + j) * step
+    if (mirrored) x = width - x
     read.push({ x: x, y: y(list[j].read) })
     write.push({ x: x, y: y(list[j].write) })
   }

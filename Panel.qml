@@ -59,13 +59,15 @@ Panel {
     }
   }
 
-  // Read and write throughput over the last Model.HISTORY samples.
+  // Read and write throughput over the last Model.HISTORY samples. Points are
+  // placed by x, which layout mirroring doesn't flip, so the line flips itself
+  // in a right-to-left panel.
   component Sparkline: Shape {
     id: spark
     property var samples: []
     property color readColor: Color.accent
     property color writeColor: Color.muted
-    readonly property var points: Model.sparkline(samples, width, height)
+    readonly property var points: Model.sparkline(samples, width, height, LayoutMirroring.enabled)
     preferredRendererType: Shape.CurveRenderer
 
     ShapePath {

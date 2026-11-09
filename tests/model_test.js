@@ -518,6 +518,13 @@ test("sparkline aligns samples to the right edge and scales to the peak", () => 
   assert.equal(pts.read[0].y, 20);
   assert.equal(pts.write[0].y, 10);
 });
+test("sparkline mirrored puts the newest sample at the left edge", () => {
+  const pts = Model.sparkline([{ read: 0, write: 50 }, { read: 100, write: 0 }], 290, 20, true);
+  assert.equal(pts.read[0].x, 10);
+  assert.equal(pts.read[1].x, 0);
+  assert.equal(pts.read[1].y, 0);
+  assert.equal(pts.write[0].y, 10);
+});
 test("sparkline of silence is a flat line along the bottom", () => {
   assert.equal(Model.sparkline([{ read: 0, write: 0 }], 100, 20).read[0].y, 20);
 });

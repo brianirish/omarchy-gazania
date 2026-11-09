@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   catalogs in `i18n/`. Sizes, rates and temperatures use that language's
   digits and decimal separator; unit letters stay as they are.
 - The panel caption no longer capitalises the mount point it names.
+- In right-to-left languages the throughput sparkline runs right to left,
+  newest at the left, as the shell's own strips do.
 - `scripts/check` and CI type-check the QML against Omarchy's own components,
   and CI repeats that weekly against the newest Omarchy release.
 
