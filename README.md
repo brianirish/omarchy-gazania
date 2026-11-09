@@ -16,17 +16,22 @@ stream, so the widget never polls the disks itself.
 
 ### Requirements
 
-- Omarchy 4 or newer
+- Omarchy 4.5 or newer. On Omarchy 4.0, stay on the last 1.x release, which
+  draws the bar text the way 4.0 expects:
+
+      git -C ~/.config/omarchy/plugins/brianirish.gazania checkout v1.0.0
+
 - The `gazania` package, version 0.2 or newer, which provides `gazania` and
   `gazania-app`
 
 ## What it shows
 
-- **In the bar:** a disk glyph and one stat: free space on a volume, read and
-  write throughput of a drive, or that drive's temperature. The whole widget,
-  glyph and text, turns to a warning color, then an error color, as the volume
-  fills up; for temperature it turns to the error color when the drive reports
-  a SMART failure.
+- **In the bar:** one stat followed by a disk glyph: free space on a volume,
+  read and write throughput of a drive, or that drive's temperature. The whole
+  widget, glyph and text, turns to a warning color, then an error color, as
+  the volume fills up; for temperature it turns to the error color when the
+  drive reports a SMART failure. On a vertical bar, or with `barStat` set to
+  `none`, only the glyph shows.
 - **In the panel:** every volume, grouped by drive, with a usage ring, its
   mount points and how much is used and free; then each drive's temperature,
   current throughput and a 30-second sparkline; and a button that opens
@@ -50,13 +55,26 @@ Or from the command line:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `barStat` | `free` | What follows the glyph: `free` (percent free on `volume`), `io` (read and write per second on `drive`), `temperature` (of `drive`) or `none`. |
+| `barStat` | `free` | What the bar shows beside the glyph: `free` (percent free on `volume`), `io` (read and write per second on `drive`), `temperature` (of `drive`) or `none`. |
 | `volume` | `/` | Mount point the bar tracks. Any mount point of a btrfs subvolume works. When it is not mounted, the bar tracks `/`, and if that is missing too the first mounted volume; the tooltip says so. |
 | `drive` | empty | Device for `io` and `temperature`, such as `/dev/sda`. Empty means the drive that holds `volume`. |
 | `warnAt` | `85` | Percent used at which the bar text and the panel rings take the warning color. |
 | `criticalAt` | `95` | Percent used at which they take the error color. If it is below `warnAt`, the two are swapped. |
 | `showIo` | `true` | Show throughput and the sparkline in the panel. |
 | `showTemperature` | `true` | Show temperature in the panel. |
+
+## Translations
+
+The widget follows the language picked under Setup > Language, and changes
+with it without a restart. Its strings live in `i18n/`, one catalog per
+Omarchy language. `i18n/en.json` is the source; the other languages are
+machine-translated, so corrections are very welcome: open a pull request that
+edits `i18n/<code>.json`. A string a catalog lacks shows in English.
+
+Sizes, rates and temperatures use the language's digits and decimal
+separator. Unit letters (B, K, M, G, T, P) and the degree sign stay as they
+are, and drive models, device names and mount points show exactly as gazania
+reports them.
 
 ## Key binding
 
@@ -101,8 +119,8 @@ blend of the two for warnings, since themes define no warning color.
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: keep logic in `Model.js`,
-test it with `node tests/model_test.js`, and run `scripts/check` before
-opening a pull request.
+test it with `node tests/model_test.js`, put every visible string in
+`i18n/en.json`, and run `scripts/check` before opening a pull request.
 
 ## Uninstall
 
