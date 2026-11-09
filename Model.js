@@ -2,6 +2,14 @@
 // runs under Node for tests/model_test.js. The widget feeds every line of
 // `gazania watch` through parseLine and applyEvent; everything the bar and the
 // panel show is derived from the resulting state object.
+//
+// Text comes from the i18n/ catalogs through `tr`, anything with t(key) and
+// tn(key, count): the widget's Commons.Translations in the shell, the
+// tests/tr.js stand-in under Node. Numbers come through `formatNumber(value,
+// decimals)` (Commons.I18n.formatNumber in the shell), so sizes take the
+// language's decimal separator and digits; without it they are written the
+// plain JavaScript way. Unit letters and the degree sign stay as they are, and
+// names, paths and messages from gazania are data, passed through verbatim.
 
 var PROTOCOL = 1
 var HISTORY = 30
@@ -9,6 +17,23 @@ var HISTORY = 30
 var GLYPH = "󰋊"
 var UNITS = ["B", "K", "M", "G", "T", "P"]
 var EVENTS = ["hello", "volumes", "io", "health", "error"]
+
+// Fills %1, %2, … from values, the way QML's String.arg() does; Node has no
+// arg(). Only %<digit> is a placeholder, so "%%1" in a Turkish catalog
+// reads "%65".
+function fill(template, values) {
+  return String(template).replace(/%(\d)/g, function(match, n) {
+    var value = values[Number(n) - 1]
+    return value === undefined ? match : String(value)
+  })
+}
+
+// `value` written with `decimals` places (or as it is when undefined), by
+// the language's rules when the shell passes formatNumber.
+function number(value, decimals, formatNumber) {
+  if (formatNumber) return formatNumber(value, decimals)
+  return decimals === undefined ? String(value) : Number(value).toFixed(decimals)
+}
 
 function emptyState() {
   return { protocol: 0, drives: [], io: {}, history: {}, health: {}, lastError: "", hasVolumes: false }
@@ -101,19 +126,21 @@ function applyEvent(state, event) {
 }
 
 // Same rules as gazania's human_size: 1024-based, one decimal below ten units.
-function formatSize(bytes) {
+// The unit letters stay as they are in every language; the number takes the
+// language's decimal separator ("1,5K" in Danish).
+function formatSize(bytes, formatNumber) {
   var n = Math.max(0, finiteOr0(bytes))
-  if (n < 1024) return Math.floor(n) + "B"
+  if (n < 1024) return number(Math.floor(n), 0, formatNumber) + "B"
   var unit = 0
   while (n >= 1024 && unit < UNITS.length - 1) {
     n /= 1024
     unit++
   }
-  return (n < 10 ? n.toFixed(1) : n.toFixed(0)) + UNITS[unit]
+  return number(n, n < 10 ? 1 : 0, formatNumber) + UNITS[unit]
 }
 
-function formatRate(bps) {
-  return formatSize(bps) + "/s"
+function formatRate(bps, formatNumber) {
+  return formatSize(bps, formatNumber) + "/s"
 }
 
 var DEFAULTS = { barStat: "free", volume: "/", drive: "", warnAt: 85, criticalAt: 95, showIo: true, showTemperature: true }
@@ -225,21 +252,33 @@ function temperatureOf(state, drive) {
   return isFinite(t) ? t : null
 }
 
-function barText(state, settings, vertical) {
-  if (vertical || settings.barStat === "none") return GLYPH
+// The bar draws the disk glyph as its icon and, on a horizontal bar, the
+// stat as a label before it ("65% 󰋊"), the way the built-in battery does.
+// Omarchy 4.5 fits a BarIconButton's text into one icon box, so the two
+// must not share a string.
+function barIcon() {
+  return GLYPH
+}
+
+function showsLabel(settings, vertical) {
+  return !vertical && settings.barStat !== "none"
+}
+
+function barLabel(state, settings, vertical, tr, formatNumber) {
+  if (!showsLabel(settings, vertical)) return ""
   if (settings.barStat === "free") {
     var tracked = trackedVolume(state, settings)
     var used = tracked ? usedPercent(tracked.volume) : null
-    return GLYPH + " " + (used === null ? DASH : (100 - used) + "%")
+    return used === null ? DASH : fill(tr.t("bar.freePercent"), [number(100 - used, 0, formatNumber)])
   }
   if (settings.barStat === "io") {
     var drive = trackedDrive(state, settings)
     var rate = drive && drive.device ? state.io[drive.device] : null
-    if (!rate) return GLYPH + " " + DASH
-    return GLYPH + " ↓" + formatSize(rate.read) + " ↑" + formatSize(rate.write)
+    if (!rate) return DASH
+    return "↓" + formatSize(rate.read, formatNumber) + " ↑" + formatSize(rate.write, formatNumber)
   }
   var t = temperatureOf(state, trackedDrive(state, settings))
-  return GLYPH + " " + (t === null ? DASH : Math.round(t) + "°")
+  return t === null ? DASH : number(Math.round(t), 0, formatNumber) + "°"
 }
 
 function barLevel(state, settings) {
@@ -252,25 +291,28 @@ function barLevel(state, settings) {
   return level(tracked ? usedPercent(tracked.volume) : null, settings)
 }
 
-// Bar slot width in icon slots for the stat text.
+// Bar slot width in icon slots. The label is drawn at the bar's icon font
+// (13 px) before the 16 px icon canvas and a 4 px gap, so each stat gets
+// room for the widest label it can show: "100%" and "100°" in two slots,
+// and "↓1023K ↑1023K" in five.
 function slotWidth(settings, vertical) {
-  if (vertical || settings.barStat === "none") return 1
-  return settings.barStat === "io" ? 4 : 2
+  if (!showsLabel(settings, vertical)) return 1
+  return settings.barStat === "io" ? 5 : 2
 }
 
-function tooltip(state, settings, status) {
-  if (status === "missing") return "Install the gazania package (0.2 or newer)"
-  if (status === "outdated") return "Update gazania to 0.2 or newer"
-  if (!state.hasVolumes) return state.lastError !== "" ? "Gazania: " + state.lastError : "Gazania: connecting…"
+function tooltip(state, settings, status, tr, formatNumber) {
+  if (status === "missing") return tr.t("tooltip.missing")
+  if (status === "outdated") return tr.t("tooltip.outdated")
+  if (!state.hasVolumes) return state.lastError !== "" ? fill(tr.t("tooltip.error"), [state.lastError]) : tr.t("tooltip.connecting")
   var tracked = trackedVolume(state, settings)
-  if (!tracked) return "No mounted volumes"
+  if (!tracked) return tr.t("tooltip.noVolumes")
   var lines = [tracked.mount]
   var usage = tracked.volume.usage
   if (usage) {
-    lines.push(formatSize(usage.used) + " of " + formatSize(tracked.volume.size) + " used")
-    lines.push(formatSize(usage.available) + " free")
+    lines.push(fill(tr.t("tooltip.usedOfSize"), [formatSize(usage.used, formatNumber), formatSize(tracked.volume.size, formatNumber)]))
+    lines.push(fill(tr.t("space.free"), [formatSize(usage.available, formatNumber)]))
   }
-  if (tracked.fallback) lines.push(settings.volume + " not found, showing " + tracked.mount)
+  if (tracked.fallback) lines.push(fill(tr.t("tooltip.fallback"), [settings.volume, tracked.mount]))
   if (state.lastError !== "") lines.push(state.lastError)
   return lines.join("\n")
 }
@@ -288,12 +330,17 @@ function exitDecision(code, sawHello, status, backoffMs) {
 // nf-md-alert (U+F0026) as a surrogate pair.
 var ALERT = "󰀦"
 
-function heroSubtitle(state, settings, status) {
-  if (status === "missing") return "gazania is not installed"
-  if (status === "outdated") return "gazania needs an update"
+// The caption under the panel title, in capitals like the shell's own hero
+// captions. Only the catalog text is capitalised: a mount point is a path,
+// and "/mnt/Media" is not "/MNT/MEDIA".
+function heroSubtitle(state, settings, status, tr, formatNumber) {
+  if (status === "missing") return tr.t("hero.missing").toUpperCase()
+  if (status === "outdated") return tr.t("hero.outdated").toUpperCase()
   var tracked = trackedVolume(state, settings)
-  if (!tracked || !tracked.volume.usage) return state.hasVolumes ? "no mounted volumes" : "connecting"
-  return formatSize(tracked.volume.usage.available) + " free on " + tracked.mount
+  if (!tracked || !tracked.volume.usage) {
+    return (state.hasVolumes ? tr.t("hero.noVolumes") : tr.t("hero.connecting")).toUpperCase()
+  }
+  return fill(tr.t("hero.freeOn").toUpperCase(), [formatSize(tracked.volume.usage.available, formatNumber), tracked.mount])
 }
 
 function volumeLabel(volume) {
@@ -302,7 +349,7 @@ function volumeLabel(volume) {
 
 // One row per volume, in stream order; `firstOfDrive` marks where a drive's
 // section header goes.
-function volumeRows(state, settings) {
+function volumeRows(state, settings, tr, formatNumber) {
   var rows = []
   for (var i = 0; i < state.drives.length; i++) {
     var drive = state.drives[i]
@@ -316,10 +363,12 @@ function volumeRows(state, settings) {
         firstOfDrive: j === 0,
         driveModel: String(drive.model || ""),
         label: volumeLabel(v),
-        mounts: mounts.length > 0 ? mounts.join(", ") : "Not mounted",
+        mounts: mounts.length > 0 ? mounts.join(", ") : tr.t("volume.notMounted"),
         mount: mounts.length > 0 ? mounts[0] : "",
-        sizeText: v.usage ? formatSize(v.usage.used) + " of " + formatSize(v.size) : formatSize(v.size),
-        freeText: v.usage ? formatSize(v.usage.available) + " free" : "",
+        sizeText: v.usage
+          ? fill(tr.t("volume.usedOfSize"), [formatSize(v.usage.used, formatNumber), formatSize(v.size, formatNumber)])
+          : formatSize(v.size, formatNumber),
+        freeText: v.usage ? fill(tr.t("space.free"), [formatSize(v.usage.available, formatNumber)]) : "",
         fraction: percent === null ? 0 : percent / 100,
         level: level(percent, settings)
       })
@@ -329,7 +378,8 @@ function volumeRows(state, settings) {
 }
 
 // One block per drive with something to show: temperature, throughput or both.
-function driveBlocks(state, settings) {
+// Model names and gazania's warning names are data and stay verbatim.
+function driveBlocks(state, settings, formatNumber) {
   if (!settings.showIo && !settings.showTemperature) return []
   var blocks = []
   for (var i = 0; i < state.drives.length; i++) {
@@ -341,11 +391,11 @@ function driveBlocks(state, settings) {
       key: String(drive.id),
       model: String(drive.model || ""),
       device: drive.device ? String(drive.device) : "",
-      temperatureText: settings.showTemperature && t !== null ? Math.round(t) + " °C" : "",
+      temperatureText: settings.showTemperature && t !== null ? number(Math.round(t), 0, formatNumber) + " °C" : "",
       failing: !!(h && h.failing),
       warningText: h && Array.isArray(h.warnings) && h.warnings.length ? h.warnings.join(", ") : "",
       rateText: settings.showIo && rate
-        ? "↓ " + formatRate(rate.read) + "  ↑ " + formatRate(rate.write)
+        ? "↓ " + formatRate(rate.read, formatNumber) + "  ↑ " + formatRate(rate.write, formatNumber)
         : "",
       showIo: settings.showIo && !!drive.device
     }
@@ -403,7 +453,9 @@ if (typeof module !== "undefined") {
     usedPercent: usedPercent,
     level: level,
     temperatureOf: temperatureOf,
-    barText: barText,
+    barIcon: barIcon,
+    showsLabel: showsLabel,
+    barLabel: barLabel,
     barLevel: barLevel,
     slotWidth: slotWidth,
     tooltip: tooltip,
@@ -414,6 +466,7 @@ if (typeof module !== "undefined") {
     driveBlocks: driveBlocks,
     sparkline: sparkline,
     stepCursor: stepCursor,
-    shellQuote: shellQuote
+    shellQuote: shellQuote,
+    fill: fill
   }
 }

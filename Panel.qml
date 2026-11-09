@@ -15,6 +15,11 @@ Panel {
   moduleName: "brianirish.gazania"
   ipcTarget: "brianirish.gazania"
 
+  // The widget's own strings, following Setup > Language live. Bindings
+  // below pass `strings` and I18n.formatNumber into Model, so a language
+  // switch re-renders them.
+  Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
+
   // A ring covering `fraction` of a circle from twelve o'clock, clockwise.
   component Ring: Shape {
     id: ring
@@ -98,8 +103,8 @@ Panel {
     showIo: setting("showIo", Model.DEFAULTS.showIo),
     showTemperature: setting("showTemperature", Model.DEFAULTS.showTemperature)
   })
-  readonly property var rows: Model.volumeRows(diskState, config)
-  readonly property var driveBlocks: Model.driveBlocks(diskState, config)
+  readonly property var rows: Model.volumeRows(diskState, config, strings, (v, d) => I18n.formatNumber(v, d))
+  readonly property var driveBlocks: Model.driveBlocks(diskState, config, (v, d) => I18n.formatNumber(v, d))
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property color dimForeground: Qt.darker(barForeground, 1.4)
   // Omarchy themes define accent and urgent but no warning color; an even
@@ -184,11 +189,14 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: Model.barText(root.diskState, root.config, vertical)
+    // Omarchy 4.5 fits the icon text into one icon box, so the stat goes in
+    // the label before it, as the built-in battery does.
+    text: Model.barIcon()
+    labelText: Model.barLabel(root.diskState, root.config, vertical, strings, (v, d) => I18n.formatNumber(v, d))
     slotSize: Style.bar.iconSlot * Model.slotWidth(root.config, vertical)
     foreground: root.levelColor(Model.barLevel(root.diskState, root.config), root.barForeground)
     dimmed: root.streamStatus !== "ok"
-    tooltipText: Model.tooltip(root.diskState, root.config, root.streamStatus)
+    tooltipText: Model.tooltip(root.diskState, root.config, root.streamStatus, strings, (v, d) => I18n.formatNumber(v, d))
     onPressed: function(b) { root.toggle() }
   }
 
@@ -256,7 +264,7 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: "Disks"
+                text: strings.t("panel.title")
                 color: root.barForeground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.title
@@ -267,7 +275,7 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: Model.heroSubtitle(root.diskState, root.config, root.streamStatus).toUpperCase()
+                text: Model.heroSubtitle(root.diskState, root.config, root.streamStatus, strings, (v, d) => I18n.formatNumber(v, d))
                 color: root.dimForeground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -425,7 +433,7 @@ Panel {
             spacing: Style.space(10)
 
             PanelSectionHeader {
-              text: "Drives"
+              text: strings.t("panel.drives")
               foreground: root.barForeground
               fontFamily: root.fontFamily
             }
@@ -505,7 +513,7 @@ Panel {
           }
 
           Button {
-            text: "Open Gazania"
+            text: strings.t("panel.openApp")
             iconText: Model.GLYPH
             foreground: root.barForeground
             fontFamily: root.fontFamily

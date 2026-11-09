@@ -23,6 +23,9 @@ shellcheck scripts/check scripts/qml-api-lint
 step "Unit tests (Model.js)"
 node tests/model_test.js
 
+step "Translations (i18n/*.json)"
+node tests/i18n_test.js
+
 step "Plugin manifest (Omarchy's omarchy-plugin-validate)"
 bash scripts/vendor/omarchy-plugin-validate .
 

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Requires Omarchy 4.5 or newer. On Omarchy 4.0, stay on v1.0.0.
+- The stat is drawn as a label before the disk icon ("65% 󰋊"), as the
+  built-in battery does. Omarchy 4.5 fits a bar button's text into one icon
+  box, which shrank "󰋊 65%" until it could not be read. The `io` stat has a
+  wider slot, so its widest label fits.
+- The widget's text follows the language picked under Setup > Language, from
+  catalogs in `i18n/`. Sizes, rates and temperatures use that language's
+  digits and decimal separator; unit letters stay as they are.
+- The panel caption no longer capitalises the mount point it names.
 - `scripts/check` and CI type-check the QML against Omarchy's own components,
   and CI repeats that weekly against the newest Omarchy release.
 
