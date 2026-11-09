@@ -16,26 +16,31 @@ stream, so the widget never polls the disks itself.
 
 ### Requirements
 
-- Omarchy 4 or newer
+- Omarchy 4.5 or newer. On Omarchy 4.0, stay on the last 1.x release, which
+  draws the bar text the way 4.0 expects:
+
+      git -C ~/.config/omarchy/plugins/brianirish.gazania checkout v1.0.0
+
 - The `gazania` package, version 0.2 or newer, which provides `gazania` and
   `gazania-app`
 
 ## What it shows
 
-- **In the bar:** a disk glyph and one stat: free space on a volume, read and
-  write throughput of a drive, or that drive's temperature. The whole widget,
-  glyph and text, turns to a warning color, then an error color, as the volume
-  fills up; for temperature it turns to the error color when the drive reports
-  a SMART failure.
+- **In the bar:** one stat followed by a disk glyph: free space on a volume,
+  read and write throughput of a drive, or that drive's temperature. The whole
+  widget, glyph and text, turns to a warning color, then an error color, as
+  the volume fills up; for temperature it turns to the error color when the
+  drive reports a SMART failure. On a vertical bar, or with `barStat` set to
+  `none`, only the glyph shows.
 - **In the panel:** every volume, grouped by drive, with a usage ring, its
   mount points and how much is used and free; then each drive's temperature,
   current throughput and a 30-second sparkline; and a button that opens
   Gazania.
 - **Keys in the panel:** Up and Down or `j` and `k` move the highlight
-  between volumes. Enter or Space opens the highlighted volume in Gazania, or
-  opens Gazania itself when nothing is highlighted. Clicking a volume opens it
-  in Gazania too. Tab and Shift+Tab move between panels, Escape closes the
-  panel.
+  between volumes, and the panel scrolls to keep it in view. Enter or Space
+  opens the highlighted volume in Gazania, or opens Gazania itself when
+  nothing is highlighted. Clicking a volume opens it in Gazania too. Tab and
+  Shift+Tab move between panels, Escape closes the panel.
 
 ## Settings
 
@@ -50,13 +55,26 @@ Or from the command line:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `barStat` | `free` | What follows the glyph: `free` (percent free on `volume`), `io` (read and write per second on `drive`), `temperature` (of `drive`) or `none`. |
+| `barStat` | `free` | What the bar shows beside the glyph: `free` (percent free on `volume`), `io` (read and write per second on `drive`), `temperature` (of `drive`) or `none`. |
 | `volume` | `/` | Mount point the bar tracks. Any mount point of a btrfs subvolume works. When it is not mounted, the bar tracks `/`, and if that is missing too the first mounted volume; the tooltip says so. |
 | `drive` | empty | Device for `io` and `temperature`, such as `/dev/sda`. Empty means the drive that holds `volume`. |
 | `warnAt` | `85` | Percent used at which the bar text and the panel rings take the warning color. |
-| `criticalAt` | `95` | Percent used at which they take the error color. |
+| `criticalAt` | `95` | Percent used at which they take the error color. If it is below `warnAt`, the two are swapped. |
 | `showIo` | `true` | Show throughput and the sparkline in the panel. |
 | `showTemperature` | `true` | Show temperature in the panel. |
+
+## Translations
+
+The widget follows the language picked under Setup > Language, and changes
+with it without a restart. Its strings live in `i18n/`, one catalog per
+Omarchy language. `i18n/en.json` is the source; the other languages are
+machine-translated, so corrections are very welcome: open a pull request that
+edits `i18n/<code>.json`. A string a catalog lacks shows in English.
+
+Sizes, rates and temperatures use the language's digits and decimal
+separator. Unit letters (B, K, M, G, T, P) and the degree sign stay as they
+are, and drive models, device names and mount points show exactly as gazania
+reports them.
 
 ## Key binding
 
@@ -83,10 +101,16 @@ blend of the two for warnings, since themes define no warning color.
 - **The glyph is dimmed and the tooltip says to install gazania:** the
   `gazania` command is not on `PATH`. Install the package; the widget checks
   again every minute.
+- **The tooltip says setpriv could not start:** the widget runs `gazania watch`
+  through `setpriv`, from the `util-linux` package, so the stream stops with
+  the shell. Install `util-linux`; the widget tries again every minute.
 - **The tooltip says to update gazania:** the installed version is older than
-  0.2, or its stream reports a protocol this widget does not know. The widget
-  stops retrying in that state; after updating, restart the shell with
+  0.2, or its stream reports an older protocol than this widget reads. The
+  widget stops retrying in that state; after updating, restart the shell with
   `omarchy restart shell`.
+- **The tooltip says to update the Gazania bar plugin:** gazania is newer than
+  this widget and streams a protocol it does not know yet. Run
+  `omarchy plugin update brianirish.gazania`, then `omarchy restart shell`.
 - **No temperature for a drive:** many USB enclosures hide SMART data.
   `gazania health` shows the same gap.
 - **Anything else:** `journalctl --user --since '10 minutes ago' | grep -i -e qml -e gazania`
@@ -95,8 +119,8 @@ blend of the two for warnings, since themes define no warning color.
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: keep logic in `Model.js`,
-test it with `node tests/model_test.js`, and run `scripts/check` before
-opening a pull request.
+test it with `node tests/model_test.js`, put every visible string in
+`i18n/en.json`, and run `scripts/check` before opening a pull request.
 
 ## Uninstall
 

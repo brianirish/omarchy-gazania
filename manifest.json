@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "brianirish.gazania",
   "name": "Gazania",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": "Brian Irish",
   "description": "Free space, disk throughput and drive temperature in the bar, with a panel of every volume, powered by the gazania disk hub",
   "kinds": [

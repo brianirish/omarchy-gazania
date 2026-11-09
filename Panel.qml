@@ -15,6 +15,11 @@ Panel {
   moduleName: "brianirish.gazania"
   ipcTarget: "brianirish.gazania"
 
+  // The widget's own strings, following Setup > Language live. Bindings
+  // below pass `strings` and I18n.formatNumber into Model, so a language
+  // switch re-renders them.
+  Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
+
   // A ring covering `fraction` of a circle from twelve o'clock, clockwise.
   component Ring: Shape {
     id: ring
@@ -54,13 +59,15 @@ Panel {
     }
   }
 
-  // Read and write throughput over the last Model.HISTORY samples.
+  // Read and write throughput over the last Model.HISTORY samples. Points are
+  // placed by x, which layout mirroring doesn't flip, so the line flips itself
+  // in a right-to-left panel.
   component Sparkline: Shape {
     id: spark
     property var samples: []
     property color readColor: Color.accent
     property color writeColor: Color.muted
-    readonly property var points: Model.sparkline(samples, width, height)
+    readonly property var points: Model.sparkline(samples, width, height, LayoutMirroring.enabled)
     preferredRendererType: Shape.CurveRenderer
 
     ShapePath {
@@ -83,7 +90,7 @@ Panel {
   }
 
   property var diskState: Model.emptyState()
-  // connecting | ok | missing | outdated
+  // connecting | ok | missing | unstartable | outdated
   property string streamStatus: "connecting"
   property bool sawHello: false
   property int backoffMs: 2000
@@ -98,8 +105,8 @@ Panel {
     showIo: setting("showIo", Model.DEFAULTS.showIo),
     showTemperature: setting("showTemperature", Model.DEFAULTS.showTemperature)
   })
-  readonly property var rows: Model.volumeRows(diskState, config)
-  readonly property var driveBlocks: Model.driveBlocks(diskState, config)
+  readonly property var rows: Model.volumeRows(diskState, config, strings, (v, d) => I18n.formatNumber(v, d))
+  readonly property var driveBlocks: Model.driveBlocks(diskState, config, (v, d) => I18n.formatNumber(v, d))
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property color dimForeground: Qt.darker(barForeground, 1.4)
   // Omarchy themes define accent and urgent but no warning color; an even
@@ -118,11 +125,14 @@ Panel {
     if (root.streamStatus === "outdated") return
     if (event.event === "hello") {
       root.sawHello = true
+      // Record the protocol before stopping, so the tooltip can tell an old
+      // gazania from one newer than this widget.
+      root.diskState = Model.applyEvent(root.diskState, event)
       if (Number(event.protocol) !== Model.PROTOCOL) {
         root.streamStatus = "outdated"
         watcher.running = false
-        return
       }
+      return
     }
     if (event.event === "volumes") {
       root.backoffMs = 2000
@@ -144,6 +154,18 @@ Panel {
 
   function moveCursor(delta) {
     root.cursorIndex = Model.stepCursor(root.cursorIndex, delta, root.rows.length)
+    root.ensureCursorVisible(volumeRepeater.itemAt(root.cursorIndex))
+  }
+
+  // Keeps the keyboard highlight inside the viewport when there are more
+  // volumes than fit, as the monitor panel's helper of the same name does.
+  // Only keys call it: a row under the pointer is already in view.
+  function ensureCursorVisible(item) {
+    var flick = scrollArea.contentItem
+    if (!item || !flick || flick.contentY === undefined) return
+    var top = item.mapToItem(flick.contentItem || flick, 0, 0).y
+    flick.contentY = Model.scrollToShow(top, top + item.height, flick.contentY, flick.height,
+                                        flick.contentHeight, Style.space(6))
   }
 
   function openApp(mount) {
@@ -164,13 +186,24 @@ Panel {
 
   Process {
     id: watcher
+    // Set once the process is up. When the program itself cannot start
+    // (setpriv missing), Quickshell sends runningChanged without exited, so a
+    // stop that never started goes through exitDecision as a failed start.
+    // A normal exit sends exited first, then runningChanged.
+    property bool launched: false
     command: ["setpriv", "--pdeathsig", "TERM", "gazania", "watch"]
     running: true
     stdout: SplitParser {
       onRead: function(line) { root.consume(line) }
     }
+    onStarted: launched = true
     onExited: function(exitCode, exitStatus) {
       root.watcherExited(exitStatus === 0 ? exitCode : -1)
+    }
+    onRunningChanged: {
+      if (running) return
+      if (!launched) root.watcherExited(null)
+      launched = false
     }
   }
 
@@ -184,11 +217,14 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: Model.barText(root.diskState, root.config, vertical)
+    // Omarchy 4.5 fits the icon text into one icon box, so the stat goes in
+    // the label before it, as the built-in battery does.
+    text: Model.barIcon()
+    labelText: Model.barLabel(root.diskState, root.config, vertical, strings, (v, d) => I18n.formatNumber(v, d))
     slotSize: Style.bar.iconSlot * Model.slotWidth(root.config, vertical)
     foreground: root.levelColor(Model.barLevel(root.diskState, root.config), root.barForeground)
     dimmed: root.streamStatus !== "ok"
-    tooltipText: Model.tooltip(root.diskState, root.config, root.streamStatus)
+    tooltipText: Model.tooltip(root.diskState, root.config, root.streamStatus, strings, (v, d) => I18n.formatNumber(v, d))
     onPressed: function(b) { root.toggle() }
   }
 
@@ -256,7 +292,7 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: "Disks"
+                text: strings.t("panel.title")
                 color: root.barForeground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.title
@@ -267,7 +303,7 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: Model.heroSubtitle(root.diskState, root.config, root.streamStatus).toUpperCase()
+                text: Model.heroSubtitle(root.diskState, root.config, root.streamStatus, strings, (v, d) => I18n.formatNumber(v, d))
                 color: root.dimForeground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -300,6 +336,7 @@ Panel {
             spacing: Style.space(4)
 
             Repeater {
+              id: volumeRepeater
               model: root.rows.length
 
               delegate: Column {
@@ -425,7 +462,7 @@ Panel {
             spacing: Style.space(10)
 
             PanelSectionHeader {
-              text: "Drives"
+              text: strings.t("panel.drives")
               foreground: root.barForeground
               fontFamily: root.fontFamily
             }
@@ -505,7 +542,7 @@ Panel {
           }
 
           Button {
-            text: "Open Gazania"
+            text: strings.t("panel.openApp")
             iconText: Model.GLYPH
             foreground: root.barForeground
             fontFamily: root.fontFamily

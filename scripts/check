@@ -2,8 +2,8 @@
 
 # Every check CI runs, in one place, so `scripts/check` locally is exactly
 # what a pull request is held to. Needs bash, jq, node, shellcheck and
-# python3; qmllint and PyYAML are used when present and skipped with a note
-# otherwise (CI has them).
+# python3; qmllint, PyYAML and an Omarchy shell (for the API lint) are used
+# when present and skipped with a note otherwise (CI has them).
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -15,13 +15,16 @@ trap 'rm -rf "${lintdir:-}" "${stage:-}"' EXIT
 step() { printf '\n== %s\n' "$*"; }
 
 step "Shell syntax"
-bash -n scripts/check scripts/vendor/omarchy-plugin-validate
+bash -n scripts/check scripts/qml-api-lint scripts/vendor/omarchy-plugin-validate
 
 step "ShellCheck"
-shellcheck scripts/check
+shellcheck scripts/check scripts/qml-api-lint
 
 step "Unit tests (Model.js)"
 node tests/model_test.js
+
+step "Translations (i18n/*.json)"
+node tests/i18n_test.js
 
 step "Plugin manifest (Omarchy's omarchy-plugin-validate)"
 bash scripts/vendor/omarchy-plugin-validate .
@@ -67,6 +70,9 @@ if [[ -n $qmllint ]]; then
 else
   echo "skipped: qmllint not installed (CI runs it)"
 fi
+
+step "QML against Omarchy's own components (qs.Ui, qs.Commons, Quickshell)"
+scripts/qml-api-lint
 
 step "QML Text elements declare textFormat (Omarchy's scanner)"
 # The scanner walks ROOT/shell, so stage the plugin's QML under a throwaway
